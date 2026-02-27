@@ -117,6 +117,7 @@
                 if (url) fetchPreview();
             }, [url]);
 
+            // If we successfully grabbed the actual post image
             if (imageUrl) {
                 return (
                     <a href={url} target="_blank" rel="noopener noreferrer" className="relative block w-20 h-20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:border-blue-400 hover:scale-105 border border-slate-200 flex-shrink-0 bg-slate-100 group/preview" title="Open Link">
@@ -128,6 +129,7 @@
                 );
             }
 
+            // Fallback: If no image found or scraping is blocked (e.g. strict Facebook links), show High-Res Favicon
             return (
                 <a href={url} target="_blank" rel="noopener noreferrer" className="hidden sm:flex flex-col items-center justify-center w-20 h-20 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-blue-400 hover:shadow-md transition-all flex-shrink-0 hover:scale-105" title="Open Link">
                     <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`} alt={domain} className="w-8 h-8 mb-1.5 object-contain opacity-80" />
@@ -192,7 +194,7 @@
             const [completedTasks, setCompletedTasks] = useState([]);
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
-            const [postsData, setPostsData] = useState({});
+            const [postsData, setPostsData] = useState({}); // State for the 5 daily posts
 
             const clientsData = useMemo(() => ({
                 Monday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics." },
@@ -220,6 +222,7 @@
             const [selectedIdeaClient, setSelectedIdeaClient] = useState(currentClient.name || "Global Strategy");
             const [newIdea, setNewIdea] = useState("");
 
+            // Auto-sync Idea Vault tab to the currently selected Day
             useEffect(() => {
                 const clientName = clientsData[selectedDay].name;
                 if (clientName === "Maintenance" || clientName === "Rest") {
@@ -256,9 +259,8 @@
             useEffect(() => {
                 if (!user) return;
                 
-                // --- CRITICAL FIX: The Global Cloud Path ---
-                // We completely removed the user.uid dependency here. Now, all your devices and browsers
-                // are forcefully pointing to this exact single document in your database.
+                // --- PERMANENT GLOBAL CLOUD PATH ---
+                // Fixed: Saves to the global path instead of user cache so data persists everywhere
                 const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 
@@ -276,7 +278,7 @@
                 });
 
                 return () => unsubscribe();
-            }, [user]);
+            }, [user, actualToday]);
 
             const syncToCloud = useCallback(async (updates) => {
                 if (!user) {
@@ -285,7 +287,7 @@
                 }
                 setIsSyncing(true);
                 
-                // --- CRITICAL FIX: The Global Cloud Path ---
+                // --- PERMANENT GLOBAL CLOUD PATH ---
                 const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 try { 
@@ -332,6 +334,7 @@
                 syncToCloud({ ideas: updated });
             };
 
+            // Post Pipeline Functions
             const cyclePostStatus = (status) => {
                 if (status === 'todo') return 'in-progress';
                 if (status === 'in-progress') return 'published';
@@ -364,6 +367,7 @@
 
             const clientRes = resources[currentClient.name] || { colors: "", link: "", hashtags: "" };
 
+            // Helper function to turn URLs in idea text into clickable links
             const renderTextWithLinks = (text) => {
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 const parts = text.split(urlRegex);
@@ -446,6 +450,7 @@
                                 </div>
                             </div>
                             
+                            {/* Row-by-Row Layout for Desktop & Mobile */}
                             <div className="p-6 flex flex-col gap-4 bg-slate-50/30 rounded-b-[2.5rem]">
                                 {[0, 1, 2, 3, 4].map(i => {
                                     const defaultPost = { text: "", status: "todo", type: "Static", date: "" };
@@ -471,12 +476,14 @@
                                                 {i + 1}
                                             </div>
                                             
+                                            {/* Custom Dropdown for Post Type - isLast prop makes bottom rows open upwards */}
                                             <PostTypeDropdown 
                                                 value={post.type || "Static"} 
                                                 onChange={(val) => updatePostDetails(i, 'type', val)} 
                                                 isLast={i >= 3}
                                             />
 
+                                            {/* Date Picker */}
                                             <input 
                                                 type="date" 
                                                 className="w-full md:w-[130px] bg-slate-50 border border-slate-100 outline-none text-[11px] font-bold text-slate-600 focus:ring-2 focus:ring-blue-100 px-3 py-4 rounded-xl transition-all shadow-inner flex-shrink-0"
