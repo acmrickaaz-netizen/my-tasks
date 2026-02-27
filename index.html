@@ -117,7 +117,6 @@
                 if (url) fetchPreview();
             }, [url]);
 
-            // If we successfully grabbed the actual post image
             if (imageUrl) {
                 return (
                     <a href={url} target="_blank" rel="noopener noreferrer" className="relative block w-20 h-20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:border-blue-400 hover:scale-105 border border-slate-200 flex-shrink-0 bg-slate-100 group/preview" title="Open Link">
@@ -129,7 +128,6 @@
                 );
             }
 
-            // Fallback: If no image found or scraping is blocked (e.g. strict Facebook links), show High-Res Favicon
             return (
                 <a href={url} target="_blank" rel="noopener noreferrer" className="hidden sm:flex flex-col items-center justify-center w-20 h-20 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-blue-400 hover:shadow-md transition-all flex-shrink-0 hover:scale-105" title="Open Link">
                     <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`} alt={domain} className="w-8 h-8 mb-1.5 object-contain opacity-80" />
@@ -194,7 +192,7 @@
             const [completedTasks, setCompletedTasks] = useState([]);
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
-            const [postsData, setPostsData] = useState({}); // State for the 5 daily posts
+            const [postsData, setPostsData] = useState({});
 
             const clientsData = useMemo(() => ({
                 Monday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics." },
@@ -222,7 +220,6 @@
             const [selectedIdeaClient, setSelectedIdeaClient] = useState(currentClient.name || "Global Strategy");
             const [newIdea, setNewIdea] = useState("");
 
-            // Auto-sync Idea Vault tab to the currently selected Day
             useEffect(() => {
                 const clientName = clientsData[selectedDay].name;
                 if (clientName === "Maintenance" || clientName === "Rest") {
@@ -258,7 +255,11 @@
 
             useEffect(() => {
                 if (!user) return;
-                const path = `/artifacts/${appId}/users/${user.uid}/productionData/current`;
+                
+                // --- CRITICAL FIX: The Global Cloud Path ---
+                // We completely removed the user.uid dependency here. Now, all your devices and browsers
+                // are forcefully pointing to this exact single document in your database.
+                const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 
                 const unsubscribe = docRef.onSnapshot((docSnap) => {
@@ -275,7 +276,7 @@
                 });
 
                 return () => unsubscribe();
-            }, [user, actualToday]);
+            }, [user]);
 
             const syncToCloud = useCallback(async (updates) => {
                 if (!user) {
@@ -283,7 +284,9 @@
                     return;
                 }
                 setIsSyncing(true);
-                const path = `/artifacts/${appId}/users/${user.uid}/productionData/current`;
+                
+                // --- CRITICAL FIX: The Global Cloud Path ---
+                const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 try { 
                     await docRef.set(updates, { merge: true }); 
@@ -329,7 +332,6 @@
                 syncToCloud({ ideas: updated });
             };
 
-            // Post Pipeline Functions
             const cyclePostStatus = (status) => {
                 if (status === 'todo') return 'in-progress';
                 if (status === 'in-progress') return 'published';
@@ -362,7 +364,6 @@
 
             const clientRes = resources[currentClient.name] || { colors: "", link: "", hashtags: "" };
 
-            // Helper function to turn URLs in idea text into clickable links
             const renderTextWithLinks = (text) => {
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 const parts = text.split(urlRegex);
@@ -445,7 +446,6 @@
                                 </div>
                             </div>
                             
-                            {/* Row-by-Row Layout for Desktop & Mobile */}
                             <div className="p-6 flex flex-col gap-4 bg-slate-50/30 rounded-b-[2.5rem]">
                                 {[0, 1, 2, 3, 4].map(i => {
                                     const defaultPost = { text: "", status: "todo", type: "Static", date: "" };
@@ -471,14 +471,12 @@
                                                 {i + 1}
                                             </div>
                                             
-                                            {/* Custom Dropdown for Post Type - isLast prop makes bottom rows open upwards */}
                                             <PostTypeDropdown 
                                                 value={post.type || "Static"} 
                                                 onChange={(val) => updatePostDetails(i, 'type', val)} 
                                                 isLast={i >= 3}
                                             />
 
-                                            {/* Date Picker */}
                                             <input 
                                                 type="date" 
                                                 className="w-full md:w-[130px] bg-slate-50 border border-slate-100 outline-none text-[11px] font-bold text-slate-600 focus:ring-2 focus:ring-blue-100 px-3 py-4 rounded-xl transition-all shadow-inner flex-shrink-0"
@@ -607,7 +605,6 @@
                                     <button type="submit" className="bg-yellow-400 text-yellow-950 font-black px-10 py-5 rounded-[1.5rem] text-[11px] tracking-widest uppercase hover:bg-yellow-500 btn-interact shadow-xl shadow-yellow-100">Store</button>
                                 </form>
                                 
-                                {/* Updated to full width layout with text wrapping for long URLs */}
                                 <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
                                     {(ideas[selectedIdeaClient] || []).length > 0 ? (
                                         (ideas[selectedIdeaClient] || []).map(idea => {
@@ -629,12 +626,10 @@
                                                     </div>
                                                     
                                                     <div className="flex items-center gap-4 flex-shrink-0">
-                                                        {/* Smart Thumbnail Preview */}
                                                         {firstUrl && domain && (
                                                             <IdeaLinkPreview url={firstUrl} domain={domain} />
                                                         )}
                                                         
-                                                        {/* Trash button hidden until hovered (visible on mobile) */}
                                                         <button onClick={() => removeIdea(selectedIdeaClient, idea.id)} className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all p-3 bg-white rounded-xl shadow-sm border border-slate-100 flex-shrink-0 hover:bg-red-50">
                                                             <Icon name="trash-2" size={18} />
                                                         </button>
