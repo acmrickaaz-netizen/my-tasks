@@ -191,10 +191,10 @@
             const [currentTime, setCurrentTime] = useState(new Date());
             
             // Content State
-            const [completedTasks, setCompletedTasks] = useState([]);
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
             const [postsData, setPostsData] = useState({}); // State for the 5 daily posts
+            const [competitorsData, setCompetitorsData] = useState({}); // State for Competitors
 
             const clientsData = useMemo(() => ({
                 Monday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics." },
@@ -202,8 +202,7 @@
                 Wednesday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights." },
                 Thursday: { name: "Tours Coach (Canada)", focus: "Group travel imagery & event-based transport ads." },
                 Friday: { name: "Ideal Hajj & Umrah (UK)", focus: "Spiritual guides, package details, & religious iconography." },
-                Saturday: { name: "Maintenance", focus: "Weekly review and planning." },
-                Sunday: { name: "Rest", focus: "Recharge for next week." }
+                Saturday: { name: "Maintenance", focus: "Weekly review and planning." }
             }), []);
 
             const vaultTabs = [
@@ -215,8 +214,11 @@
                 { id: "Global Strategy", label: "Global" }
             ];
 
-            const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-            const actualToday = days[new Date().getDay()];
+            const fullWeekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const todayStr = fullWeekDays[new Date().getDay()];
+            const actualToday = todayStr === "Sunday" ? "Monday" : todayStr;
+            const displayDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            
             const [selectedDay, setSelectedDay] = useState(actualToday);
             const currentClient = clientsData[selectedDay];
             const [selectedIdeaClient, setSelectedIdeaClient] = useState(currentClient.name || "Global Strategy");
@@ -268,9 +270,9 @@
                     if (docSnap.exists) {
                         const data = docSnap.data();
                         if (data.ideas) setIdeas(data.ideas);
-                        if (data.completedTasks) setCompletedTasks(data.completedTasks);
                         if (data.resources) setResources(data.resources);
                         if (data.postsData) setPostsData(data.postsData);
+                        if (data.competitorsData) setCompetitorsData(data.competitorsData);
                     }
                 }, (err) => {
                     console.error("Firestore Error:", err);
@@ -305,15 +307,6 @@
                 const updatedResources = { ...resources, [clientName]: { ...(resources[clientName] || {}), [field]: value } };
                 setResources(updatedResources);
                 syncToCloud({ resources: updatedResources });
-            };
-
-            const toggleTask = (taskId) => {
-                const daySpecificId = `${selectedDay}-${taskId}`;
-                const updated = completedTasks.includes(daySpecificId) 
-                    ? completedTasks.filter(t => t !== daySpecificId) 
-                    : [...completedTasks, daySpecificId];
-                setCompletedTasks(updated);
-                syncToCloud({ completedTasks: updated });
             };
 
             const addIdea = (e) => {
@@ -358,6 +351,31 @@
                 
                 setPostsData(newPostsData);
                 syncToCloud({ postsData: newPostsData });
+            };
+
+            // Competitor Functions
+            const addCompetitorRow = () => {
+                const dayCompetitors = competitorsData[selectedDay] ? [...competitorsData[selectedDay]] : [];
+                dayCompetitors.push({ id: Date.now(), name: "", url: "" });
+                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                setCompetitorsData(newCompData);
+                syncToCloud({ competitorsData: newCompData });
+            };
+
+            const updateCompetitor = (index, field, value) => {
+                const dayCompetitors = [...(competitorsData[selectedDay] || [])];
+                dayCompetitors[index] = { ...dayCompetitors[index], [field]: value };
+                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                setCompetitorsData(newCompData);
+                syncToCloud({ competitorsData: newCompData });
+            };
+
+            const removeCompetitor = (index) => {
+                const dayCompetitors = [...(competitorsData[selectedDay] || [])];
+                dayCompetitors.splice(index, 1);
+                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                setCompetitorsData(newCompData);
+                syncToCloud({ competitorsData: newCompData });
             };
 
             useEffect(() => {
@@ -541,42 +559,58 @@
                             {/* RIGHT COLUMN */}
                             <div className="lg:col-span-8 space-y-10">
                                 
-                                {/* WORKFLOW BLOCKS */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="bg-orange-500 p-6 flex justify-between items-center text-white">
-                                            <h2 className="font-black uppercase tracking-tight text-sm flex items-center gap-3"><Icon name="sun" /> Morning</h2>
-                                            <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">07:30</span>
+                                {/* COMPETITORS BLOCK */}
+                                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden w-full h-full flex flex-col">
+                                    <div className="px-8 py-6 border-b border-slate-100 bg-red-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-red-500 p-2.5 rounded-xl text-white shadow-md"><Icon name="target" size={20} /></div>
+                                            <div>
+                                                <h2 className="font-black text-slate-900 text-xl tracking-tighter uppercase">Competitors</h2>
+                                                <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Track Market Rivals</p>
+                                            </div>
                                         </div>
-                                        <div className="p-8 space-y-4">
-                                            {["Caption Drafting", "Topic Research", "Resize Assets"].map((task, i) => {
-                                                const isDone = completedTasks.includes(`${selectedDay}-m${i}`);
-                                                return (
-                                                    <div key={i} onClick={() => toggleTask(`m${i}`)} className={`flex items-center gap-5 p-5 rounded-2xl border-2 cursor-pointer transition-all ${isDone ? 'bg-slate-50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-orange-200'}`}>
-                                                        {isDone ? <Icon name="check-circle" className="text-green-500" /> : <Icon name="circle" className="text-slate-200" />}
-                                                        <span className={`text-sm font-bold ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task}</span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                        <button onClick={addCompetitorRow} className="bg-white border border-slate-200 text-slate-700 px-5 py-3 rounded-xl text-[10px] font-black uppercase hover:border-red-300 hover:text-red-500 transition-all shadow-sm flex items-center justify-center gap-2">
+                                            <Icon name="plus" size={14} /> Add Rival
+                                        </button>
                                     </div>
-
-                                    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="bg-indigo-600 p-6 flex justify-between items-center text-white">
-                                            <h2 className="font-black uppercase tracking-tight text-sm flex items-center gap-3"><Icon name="moon" /> Night Forge</h2>
-                                            <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">20:00</span>
-                                        </div>
-                                        <div className="p-8 space-y-4">
-                                            {["Visual Design Phase", "Scheduling & Sync"].map((task, i) => {
-                                                const isDone = completedTasks.includes(`${selectedDay}-n${i}`);
-                                                return (
-                                                    <div key={i} onClick={() => toggleTask(`n${i}`)} className={`flex items-center gap-5 p-5 rounded-2xl border-2 cursor-pointer transition-all ${isDone ? 'bg-slate-50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-indigo-200'}`}>
-                                                        {isDone ? <Icon name="check-circle" className="text-green-500" /> : <Icon name="circle" className="text-slate-200" />}
-                                                        <span className={`text-sm font-bold ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task}</span>
+                                    <div className="p-6 flex flex-col gap-4 bg-slate-50/30 flex-1">
+                                        {(competitorsData[selectedDay] || []).length > 0 ? (
+                                            (competitorsData[selectedDay] || []).map((comp, i) => (
+                                                <div key={comp.id} className="flex flex-col md:flex-row items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-red-300 group">
+                                                    <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 font-black flex items-center justify-center shadow-inner text-sm flex-shrink-0 border border-slate-100">
+                                                        {i + 1}
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Competitor Name..." 
+                                                        className="w-full md:w-1/3 bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-red-100 p-4 rounded-xl transition-all shadow-inner"
+                                                        value={comp.name}
+                                                        onChange={(e) => updateCompetitor(i, 'name', e.target.value)}
+                                                    />
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Website or Social Link..." 
+                                                        className="flex-1 w-full bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-red-100 p-4 rounded-xl transition-all shadow-inner"
+                                                        value={comp.url}
+                                                        onChange={(e) => updateCompetitor(i, 'url', e.target.value)}
+                                                    />
+                                                    {comp.url && (
+                                                        <a href={comp.url} target="_blank" className="hidden md:flex p-4 text-slate-400 hover:text-blue-500 transition-all bg-slate-50 hover:bg-blue-50 rounded-xl">
+                                                            <Icon name="external-link" size={18} />
+                                                        </a>
+                                                    )}
+                                                    <button onClick={() => removeCompetitor(i)} className="w-full md:w-auto p-4 text-slate-400 hover:text-red-500 transition-all bg-slate-50 hover:bg-red-50 rounded-xl flex items-center justify-center">
+                                                        <Icon name="trash-2" size={18} />
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-white flex flex-col items-center justify-center h-full">
+                                                <Icon name="users" size={48} className="text-slate-200 mb-4" />
+                                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">No competitors tracked for {selectedDay}</p>
+                                                <p className="text-xs text-slate-500 font-medium">Click "Add Rival" to start tracking.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -670,14 +704,15 @@
                             </div>
                         </div>
                         
-                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar max-w-full">
-                            {days.map(d => (
+                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar max-w-full py-1">
+                            {displayDays.map(d => (
                                 <button 
                                     key={d} 
                                     onClick={() => setSelectedDay(d)} 
-                                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${selectedDay === d ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
+                                    className={`flex flex-col items-center justify-center px-5 py-2 rounded-xl transition-all min-w-max ${selectedDay === d ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105' : 'bg-white border border-slate-100 hover:bg-slate-50'}`}
                                 >
-                                    {d}
+                                    <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${selectedDay === d ? 'text-white' : 'text-slate-400'}`}>{d}</span>
+                                    <span className={`text-[9px] font-bold mt-0.5 ${selectedDay === d ? 'text-blue-200' : 'text-slate-500'}`}>{clientsData[d].name}</span>
                                 </button>
                             ))}
                         </div>
