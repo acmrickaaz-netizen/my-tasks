@@ -104,7 +104,6 @@
             useEffect(() => {
                 const fetchPreview = async () => {
                     try {
-                        // Using Microlink API to extract Open Graph images from the pasted URL
                         const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
                         const data = await res.json();
                         if (data.status === 'success' && data.data?.image?.url) {
@@ -117,7 +116,6 @@
                 if (url) fetchPreview();
             }, [url]);
 
-            // If we successfully grabbed the actual post image
             if (imageUrl) {
                 return (
                     <a href={url} target="_blank" rel="noopener noreferrer" className="relative block w-20 h-20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:border-blue-400 hover:scale-105 border border-slate-200 flex-shrink-0 bg-slate-100 group/preview" title="Open Link">
@@ -129,7 +127,6 @@
                 );
             }
 
-            // Fallback: If no image found or scraping is blocked (e.g. strict Facebook links), show High-Res Favicon
             return (
                 <a href={url} target="_blank" rel="noopener noreferrer" className="hidden sm:flex flex-col items-center justify-center w-20 h-20 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-blue-400 hover:shadow-md transition-all flex-shrink-0 hover:scale-105" title="Open Link">
                     <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`} alt={domain} className="w-8 h-8 mb-1.5 object-contain opacity-80" />
@@ -197,6 +194,7 @@
             const [competitorsData, setCompetitorsData] = useState({}); // State for Competitors
 
             const clientsData = useMemo(() => ({
+                Master: { name: "Weekly Overview", focus: "Global production status." },
                 Monday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics." },
                 Tuesday: { name: "Fly Universal (UK)", focus: "Last Minute deal templates & flight route maps." },
                 Wednesday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights." },
@@ -217,15 +215,17 @@
             const fullWeekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
             const todayStr = fullWeekDays[new Date().getDay()];
             const actualToday = todayStr === "Sunday" ? "Monday" : todayStr;
-            const displayDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            
+            const displayDays = ["Master", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
             
             const [selectedDay, setSelectedDay] = useState(actualToday);
             const currentClient = clientsData[selectedDay];
-            const [selectedIdeaClient, setSelectedIdeaClient] = useState(currentClient.name || "Global Strategy");
+            const [selectedIdeaClient, setSelectedIdeaClient] = useState("Global Strategy");
             const [newIdea, setNewIdea] = useState("");
 
-            // Auto-sync Idea Vault tab to the currently selected Day
+            // Auto-sync Idea Vault tab to the currently selected Day (except on Master view)
             useEffect(() => {
+                if (selectedDay === "Master") return; 
                 const clientName = clientsData[selectedDay].name;
                 if (clientName === "Maintenance" || clientName === "Rest") {
                     setSelectedIdeaClient("Global Strategy");
@@ -262,7 +262,6 @@
                 if (!user) return;
                 
                 // --- PERMANENT GLOBAL CLOUD PATH ---
-                // Fixed: Saves to the global path instead of user cache so data persists everywhere
                 const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 
@@ -289,7 +288,6 @@
                 }
                 setIsSyncing(true);
                 
-                // --- PERMANENT GLOBAL CLOUD PATH ---
                 const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 try { 
@@ -385,7 +383,6 @@
 
             const clientRes = resources[currentClient.name] || { colors: "", link: "", hashtags: "" };
 
-            // Helper function to turn URLs in idea text into clickable links
             const renderTextWithLinks = (text) => {
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 const parts = text.split(urlRegex);
@@ -401,8 +398,19 @@
                 });
             };
 
+            // Calculates the global progress for the Master view
+            const calculateGlobalProgress = () => {
+                let totalPublished = 0;
+                const workDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                workDays.forEach(day => {
+                    const dayPosts = postsData[day] || [];
+                    totalPublished += dayPosts.filter(p => p && p.status === 'published').length;
+                });
+                return totalPublished;
+            };
+
             return (
-                <div className="min-h-screen pb-24 bg-slate-50">
+                <div className="min-h-screen pb-28 bg-slate-50">
                     {errorMessage && (
                         <div className="bg-red-600 text-white text-[10px] font-black text-center py-2 uppercase tracking-[0.2em] sticky top-0 z-[60] shadow-lg animate-pulse">
                             <Icon name="alert-triangle" size={12} className="inline mr-2" /> {errorMessage}
@@ -410,7 +418,7 @@
                     )}
 
                     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-                        <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex flex-col items-center md:items-start">
                                 <div className="flex items-center gap-3">
                                     <div className="bg-blue-600 p-2 rounded-xl text-white shadow-md">
@@ -438,6 +446,86 @@
                         </div>
                     </header>
 
+                    {/* ====================================================================== */}
+                    {/* MASTER VIEW RENDERING                                                  */}
+                    {/* ====================================================================== */}
+                    {selectedDay === 'Master' ? (
+                        <main className="max-w-7xl mx-auto px-6 py-10 space-y-10 animate-fade-in">
+                            <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[2rem] px-8 py-8 shadow-xl relative overflow-hidden border border-slate-700">
+                                <div className="absolute -top-16 -right-6 opacity-10 pointer-events-none transition-transform duration-1000 rotate-12">
+                                    <Icon name="globe" size={250} />
+                                </div>
+                                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                                    <div>
+                                        <h2 className="text-[10px] font-black text-blue-400 uppercase mb-2 tracking-[0.4em]">Weekly Overview</h2>
+                                        <h3 className="text-4xl font-[900] tracking-tight leading-none">Master Production Board</h3>
+                                        <p className="text-sm font-medium text-slate-400 mt-4 max-w-xl">A complete bird's-eye view of all client posts for the week. Track global publishing progress at a glance.</p>
+                                    </div>
+                                    <div className="bg-white/10 border border-white/20 p-6 rounded-[2rem] backdrop-blur-md flex flex-col items-center justify-center min-w-[200px]">
+                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Total Weekly Progress</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-green-400">{calculateGlobalProgress()}</span>
+                                            <span className="text-xl font-bold text-slate-400">/ 30</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => {
+                                    const dayPosts = postsData[day] || [];
+                                    const slots = [0, 1, 2, 3, 4].map(i => dayPosts[i] || { status: 'todo', text: '', type: 'Static' });
+                                    const publishedCount = slots.filter(p => p.status === 'published').length;
+
+                                    return (
+                                        <div key={day} className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col hover:border-blue-400 transition-all hover:-translate-y-1">
+                                            <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
+                                                <div>
+                                                    <h4 className="font-black text-slate-900 uppercase tracking-tighter text-lg">{day}</h4>
+                                                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">{clientsData[day].name}</p>
+                                                </div>
+                                                <div className={`px-4 py-2 rounded-xl text-sm font-black shadow-inner border ${publishedCount === 5 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                                    {publishedCount}/5
+                                                </div>
+                                            </div>
+                                            <div className="p-6 flex flex-col gap-3 flex-1">
+                                                {slots.map((post, i) => {
+                                                    const isPublished = post.status === 'published';
+                                                    return (
+                                                        <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
+                                                            {isPublished ? (
+                                                                <Icon name="check-circle" className="text-green-500 flex-shrink-0 drop-shadow-sm" size={20} />
+                                                            ) : (
+                                                                <Icon name="circle" className="text-slate-300 flex-shrink-0" size={20} />
+                                                            )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={`text-sm font-bold truncate ${isPublished ? 'text-green-900' : 'text-slate-500'}`}>
+                                                                    {post.text || <span className="italic opacity-40 font-medium">Empty Slot</span>}
+                                                                </p>
+                                                                <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isPublished ? 'text-green-600' : 'text-slate-400'}`}>
+                                                                    {isPublished ? 'Published' : 'Not Published'} • {post.type || 'Static'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <button 
+                                                onClick={() => setSelectedDay(day)} 
+                                                className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest p-4 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                Edit {day} <Icon name="arrow-right" size={14} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </main>
+                    ) : (
+
+                    /* ====================================================================== */
+                    /* STANDARD DAILY VIEW RENDERING                                          */
+                    /* ====================================================================== */
                     <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
                         {/* COMPACT LIVE SESSION BANNER AT TOP */}
                         <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[2rem] px-8 py-6 shadow-xl relative overflow-hidden group border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
@@ -468,7 +556,6 @@
                                 </div>
                             </div>
                             
-                            {/* Row-by-Row Layout for Desktop & Mobile */}
                             <div className="p-6 flex flex-col gap-4 bg-slate-50/30 rounded-b-[2.5rem]">
                                 {[0, 1, 2, 3, 4].map(i => {
                                     const defaultPost = { text: "", status: "todo", type: "Static", date: "" };
@@ -689,8 +776,9 @@
                         </div>
 
                     </main>
+                    )}
 
-                    <footer className="fixed bottom-0 left-0 right-0 glass-effect px-6 py-4 z-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <footer className="fixed bottom-0 left-0 right-0 glass-effect px-6 py-4 z-50 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-slate-200">
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-full shadow-lg">
                                 <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${
@@ -709,10 +797,18 @@
                                 <button 
                                     key={d} 
                                     onClick={() => setSelectedDay(d)} 
-                                    className={`flex flex-col items-center justify-center px-5 py-2 rounded-xl transition-all min-w-max ${selectedDay === d ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105' : 'bg-white border border-slate-100 hover:bg-slate-50'}`}
+                                    className={`flex flex-col items-center justify-center px-5 py-2 rounded-xl transition-all min-w-max ${
+                                        selectedDay === d 
+                                        ? (d === 'Master' ? 'bg-slate-900 text-white shadow-xl scale-105' : 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105') 
+                                        : 'bg-white border border-slate-100 hover:bg-slate-50'
+                                    }`}
                                 >
-                                    <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${selectedDay === d ? 'text-white' : 'text-slate-400'}`}>{d}</span>
-                                    <span className={`text-[9px] font-bold mt-0.5 ${selectedDay === d ? 'text-blue-200' : 'text-slate-500'}`}>{clientsData[d].name}</span>
+                                    <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${selectedDay === d ? 'text-white' : 'text-slate-400'}`}>
+                                        {d}
+                                    </span>
+                                    <span className={`text-[9px] font-bold mt-0.5 ${selectedDay === d ? (d === 'Master' ? 'text-slate-300' : 'text-blue-200') : 'text-slate-500'}`}>
+                                        {clientsData[d].name}
+                                    </span>
                                 </button>
                             ))}
                         </div>
