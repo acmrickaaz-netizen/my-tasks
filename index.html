@@ -192,6 +192,7 @@
             const [currentTime, setCurrentTime] = useState(new Date());
             
             // Content State
+            const [completedTasks, setCompletedTasks] = useState([]);
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
             const [postsData, setPostsData] = useState({}); // State for the daily posts
@@ -378,7 +379,10 @@
                 return () => clearInterval(timer);
             }, []);
 
-            const clientRes = resources[currentClient.name] || { colors: "", link: "", hashtags: "" };
+            // Safe fallback logic for resources to prevent crashes if partially saved
+            const clientRes = resources[currentClient.name] || {};
+            const safeColors = clientRes.colors || "";
+            const safeLink = clientRes.link || "";
 
             const renderTextWithLinks = (text) => {
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -604,6 +608,9 @@
                                                                 type="date" 
                                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                                                 value={post.date || ""} 
+                                                                onClick={(e) => {
+                                                                    if (e.target.showPicker) e.target.showPicker();
+                                                                }}
                                                                 onChange={e => {
                                                                     const newDate = e.target.value;
                                                                     if (newDate) {
@@ -657,15 +664,15 @@
                                 <div>
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-3">Color Palette</label>
                                     <div className="flex gap-2 flex-wrap mb-4">
-                                        {clientRes.colors.split(',').map((c, i) => c.trim().startsWith('#') && <div key={i} className="w-10 h-10 rounded-2xl border-2 border-white shadow-md" style={{ backgroundColor: c.trim() }} />)}
+                                        {safeColors.split(',').map((c, i) => c.trim().startsWith('#') && <div key={i} className="w-10 h-10 rounded-2xl border-2 border-white shadow-md" style={{ backgroundColor: c.trim() }} />)}
                                     </div>
-                                    <input type="text" placeholder="#HEX, #HEX" className="w-full text-[10px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 font-mono" value={clientRes.colors} onChange={(e) => updateResource(currentClient.name, 'colors', e.target.value)} />
+                                    <input type="text" placeholder="#HEX, #HEX" className="w-full text-[10px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 font-mono" value={safeColors} onChange={(e) => updateResource(currentClient.name, 'colors', e.target.value)} />
                                 </div>
                                 <div>
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-3">Google Drive</label>
                                     <div className="flex gap-2">
-                                        <input type="text" placeholder="Folder URL..." className="flex-1 text-[10px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none" value={clientRes.link} onChange={(e) => updateResource(currentClient.name, 'link', e.target.value)} />
-                                        {clientRes.link && <a href={clientRes.link} target="_blank" className="p-3 bg-blue-600 text-white rounded-xl shadow-lg"><Icon name="external-link" size={18} /></a>}
+                                        <input type="text" placeholder="Folder URL..." className="flex-1 text-[10px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none" value={safeLink} onChange={(e) => updateResource(currentClient.name, 'link', e.target.value)} />
+                                        {safeLink && <a href={safeLink} target="_blank" className="p-3 bg-blue-600 text-white rounded-xl shadow-lg"><Icon name="external-link" size={18} /></a>}
                                     </div>
                                 </div>
                             </div>
