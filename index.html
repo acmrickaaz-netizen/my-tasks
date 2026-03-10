@@ -44,17 +44,6 @@
         .animate-save {
             animation: savePulse 1.5s infinite;
         }
-
-        /* Customizing the date input to ensure it is fully clickable even when invisible */
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -118,7 +107,6 @@
                 if (url) fetchPreview();
             }, [url]);
 
-            // If we successfully grabbed the actual post image
             if (imageUrl) {
                 return (
                     <a href={url} target="_blank" rel="noopener noreferrer" className="relative block w-20 h-20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:border-blue-400 hover:scale-105 border border-slate-200 flex-shrink-0 bg-slate-100 group/preview" title="Open Link">
@@ -130,7 +118,6 @@
                 );
             }
 
-            // Fallback: If no image found or scraping is blocked (e.g. strict Facebook links), show High-Res Favicon
             return (
                 <a href={url} target="_blank" rel="noopener noreferrer" className="hidden sm:flex flex-col items-center justify-center w-20 h-20 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-blue-400 hover:shadow-md transition-all flex-shrink-0 hover:scale-105" title="Open Link">
                     <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`} alt={domain} className="w-8 h-8 mb-1.5 object-contain opacity-80" />
@@ -189,17 +176,36 @@
             const [authStatus, setAuthStatus] = useState('connecting');
             const [errorMessage, setErrorMessage] = useState(null);
             const [isSyncing, setIsSyncing] = useState(false);
-            const [currentTime, setCurrentTime] = useState(new Date());
             
+            // Current Date/Month Setup for Auto-Refreshing Logic
+            const [currentDateObj, setCurrentDateObj] = useState(new Date());
+            const currentYear = currentDateObj.getFullYear();
+            const currentMonth = currentDateObj.getMonth();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const monthName = currentDateObj.toLocaleString('default', { month: 'long' });
+            
+            // Build Week Groupings dynamically based on days in the month
+            const monthWeeks = useMemo(() => {
+                const weeks = [];
+                for (let i = 0; i < daysInMonth; i += 7) {
+                    const count = Math.min(7, daysInMonth - i);
+                    weeks.push({
+                        title: `Week ${weeks.length + 1}`,
+                        start: i,
+                        count: count
+                    });
+                }
+                return weeks;
+            }, [daysInMonth]);
+
             // Content State
-            const [completedTasks, setCompletedTasks] = useState([]);
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
             const [postsData, setPostsData] = useState({}); // State for the daily posts
             const [competitorsData, setCompetitorsData] = useState({}); // State for Competitors
 
             const clientsData = useMemo(() => ({
-                Master: { name: "Weekly Overview", focus: "Global production status." },
+                Master: { name: "Monthly Overview", focus: "Global production status." },
                 Monday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics." },
                 Tuesday: { name: "Fly Universal (UK)", focus: "Last Minute deal templates & flight route maps." },
                 Wednesday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights." },
@@ -337,12 +343,20 @@
                 return 'todo';
             };
 
-            const updatePostDetails = (index, field, value) => {
+            // Enhanced update function that stamps the explicit date string
+            const updatePostDetails = (index, field, value, specificDateStr) => {
                 const dayPosts = postsData[selectedDay] ? [...postsData[selectedDay]] : [];
                 
-                while(dayPosts.length < 30) dayPosts.push({ text: "", status: "todo", type: "Static", date: "" });
+                // Ensure array size matches the month length
+                while(dayPosts.length < daysInMonth) dayPosts.push({ text: "", status: "todo", type: "Static", date: "" });
 
-                dayPosts[index] = { ...dayPosts[index], [field]: value };
+                // If specificDateStr is provided, it means we are locking the record to that exact date
+                if (specificDateStr) {
+                    dayPosts[index] = { ...dayPosts[index], [field]: value, date: specificDateStr };
+                } else {
+                    dayPosts[index] = { ...dayPosts[index], [field]: value };
+                }
+                
                 const newPostsData = { ...postsData, [selectedDay]: dayPosts };
                 
                 setPostsData(newPostsData);
@@ -375,7 +389,7 @@
             };
 
             useEffect(() => {
-                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+                const timer = setInterval(() => setCurrentDateObj(new Date()), 1000);
                 return () => clearInterval(timer);
             }, []);
 
@@ -399,16 +413,25 @@
                 });
             };
 
-            // Calculates the global progress for the Master view
+            // Calculates the global progress for the Master view strictly based on current month's dates
             const calculateGlobalProgress = () => {
                 let totalPublished = 0;
                 const workDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
                 workDays.forEach(day => {
                     const dayPosts = postsData[day] || [];
-                    totalPublished += dayPosts.filter(p => p && p.status === 'published').length;
+                    for (let i=0; i<daysInMonth; i++) {
+                        const expectedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
+                        const p = dayPosts[i];
+                        // Only count it if it's explicitly tied to THIS month's date
+                        if (p && p.status === 'published' && p.date === expectedDate) {
+                            totalPublished++;
+                        }
+                    }
                 });
                 return totalPublished;
             };
+
+            const globalMaxProgress = 6 * daysInMonth;
 
             return (
                 <div className="min-h-screen pb-28 bg-slate-50">
@@ -435,12 +458,12 @@
                             
                             <div className="flex items-center gap-6">
                                 <div className="hidden md:flex flex-col items-end">
-                                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{currentTime.toLocaleDateString('en-GB', { weekday: 'long' })}</p>
-                                    <p className="text-xs font-bold text-slate-400">{currentTime.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{currentDateObj.toLocaleDateString('en-GB', { weekday: 'long' })}</p>
+                                    <p className="text-xs font-bold text-slate-400">{currentDateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
                                 </div>
                                 <div className="bg-slate-900 px-5 py-2.5 rounded-xl shadow-lg border border-slate-800">
                                     <p className="text-xl font-mono font-black text-white tabular-nums tracking-tight">
-                                        {currentTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                        {currentDateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 </div>
                             </div>
@@ -458,15 +481,15 @@
                                 </div>
                                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
                                     <div>
-                                        <h2 className="text-[10px] font-black text-blue-400 uppercase mb-2 tracking-[0.4em]">Weekly Overview</h2>
+                                        <h2 className="text-[10px] font-black text-blue-400 uppercase mb-2 tracking-[0.4em]">Monthly Overview - {monthName} {currentYear}</h2>
                                         <h3 className="text-4xl font-[900] tracking-tight leading-none">Master Production Board</h3>
-                                        <p className="text-sm font-medium text-slate-400 mt-4 max-w-xl">A complete bird's-eye view of all client posts for the week. Track global publishing progress at a glance.</p>
+                                        <p className="text-sm font-medium text-slate-400 mt-4 max-w-xl">A complete bird's-eye view of all client posts for the month. Track global publishing progress perfectly synced to {monthName}.</p>
                                     </div>
                                     <div className="bg-white/10 border border-white/20 p-6 rounded-[2rem] backdrop-blur-md flex flex-col items-center justify-center min-w-[200px]">
-                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Total Weekly Progress</p>
+                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Total Monthly Progress</p>
                                         <div className="flex items-baseline gap-2">
                                             <span className="text-5xl font-black text-green-400">{calculateGlobalProgress()}</span>
-                                            <span className="text-xl font-bold text-slate-400">/ 180</span>
+                                            <span className="text-xl font-bold text-slate-400">/ {globalMaxProgress}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -475,8 +498,21 @@
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                                 {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => {
                                     const dayPosts = postsData[day] || [];
-                                    const slots = Array.from({length: 30}, (_, i) => i).map(i => dayPosts[i] || { status: 'todo', text: '', type: 'Static' });
-                                    const publishedCount = slots.filter(p => p.status === 'published').length;
+                                    let publishedCount = 0;
+                                    
+                                    // Process exactly `daysInMonth` slots for accurate calendar mapping
+                                    const slots = Array.from({length: daysInMonth}, (_, i) => {
+                                        const expectedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
+                                        let p = dayPosts[i] || { status: 'todo', text: '', type: 'Static', date: expectedDate };
+                                        
+                                        // Auto-refresh: If the saved date is not from this month, present an empty slate
+                                        if (p.date && p.date !== expectedDate) {
+                                            p = { status: 'todo', text: '', type: 'Static', date: expectedDate };
+                                        }
+                                        
+                                        if (p.status === 'published') publishedCount++;
+                                        return p;
+                                    });
 
                                     return (
                                         <div key={day} className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col hover:border-blue-400 transition-all hover:-translate-y-1">
@@ -485,14 +521,15 @@
                                                     <h4 className="font-black text-slate-900 uppercase tracking-tighter text-lg">{day}</h4>
                                                     <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">{clientsData[day].name}</p>
                                                 </div>
-                                                <div className={`px-4 py-2 rounded-xl text-sm font-black shadow-inner border ${publishedCount === 30 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                                    {publishedCount}/30
+                                                <div className={`px-4 py-2 rounded-xl text-sm font-black shadow-inner border ${publishedCount === daysInMonth ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                                    {publishedCount}/{daysInMonth}
                                                 </div>
                                             </div>
                                             <div className="p-6 flex flex-col gap-3 flex-1 max-h-[400px] overflow-y-auto custom-scrollbar">
                                                 {slots.map((post, i) => {
                                                     const isPublished = post.status === 'published';
-                                                    const formattedDate = post.date ? post.date.split('-').reverse().join('/') : 'No Date';
+                                                    const displayDateStr = `${String(i + 1).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
+                                                    
                                                     return (
                                                         <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
                                                             {isPublished ? (
@@ -505,7 +542,7 @@
                                                                     {post.text || <span className="italic opacity-40 font-medium">Empty Slot</span>}
                                                                 </p>
                                                                 <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isPublished ? 'text-green-600' : 'text-slate-400'}`}>
-                                                                    {isPublished ? 'Published' : 'Not Published'} • {formattedDate} • {post.type || 'Static'}
+                                                                    {isPublished ? 'Published' : 'Not Published'} • {displayDateStr} • {post.type || 'Static'}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -546,35 +583,38 @@
                             </div>
                         </section>
 
-                        {/* POST PIPELINE - NOW FULL WIDTH AT THE TOP WITH WEEKLY BREAKDOWN (30 POSTS) */}
+                        {/* POST PIPELINE - NOW FULL WIDTH AT THE TOP WITH WEEKLY BREAKDOWN */}
                         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl w-full">
                             <div className="px-8 py-6 border-b border-slate-100 bg-blue-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-t-[2.5rem]">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-md"><Icon name="layers" size={20} /></div>
+                                    <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-md"><Icon name="calendar-days" size={20} /></div>
                                     <div>
                                         <h2 className="font-black text-slate-900 text-xl tracking-tighter uppercase">Daily Post Pipeline</h2>
-                                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Track & Detail 30 Posts for {selectedDay}</p>
+                                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Tracking {daysInMonth} Posts for {monthName} {currentYear}</p>
                                     </div>
                                 </div>
                             </div>
                             
                             {/* Row-by-Row Layout with Scrollbar and Weekly Breakdown */}
                             <div className="p-6 flex flex-col gap-6 bg-slate-50/30 rounded-b-[2.5rem] max-h-[800px] overflow-y-auto custom-scrollbar">
-                                {[
-                                    { title: "Week 1", count: 7, start: 0 },
-                                    { title: "Week 2", count: 7, start: 7 },
-                                    { title: "Week 3", count: 7, start: 14 },
-                                    { title: "Week 4", count: 7, start: 21 },
-                                    { title: "Week 5", count: 2, start: 28 }
-                                ].map((week, wIdx) => (
-                                    <div key={wIdx} className="bg-slate-100/50 p-4 rounded-2xl border border-slate-200/60">
+                                {monthWeeks.map((week, wIdx) => (
+                                    <div key={wIdx} className="bg-slate-100/50 p-4 rounded-2xl border border-slate-200/60 shadow-sm">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 pl-2">
-                                            <Icon name="calendar" size={14} /> {week.title} (Posts {week.start + 1}-{week.start + week.count})
+                                            <Icon name="calendar" size={14} /> {week.title} (Days {week.start + 1}-{week.start + week.count})
                                         </h3>
                                         <div className="flex flex-col gap-3">
                                             {Array.from({length: week.count}, (_, idx) => week.start + idx).map(i => {
-                                                const defaultPost = { text: "", status: "todo", type: "Static", date: "" };
-                                                const post = (postsData[selectedDay] || [])[i] || defaultPost;
+                                                // Calculate exact fixed dates for this month
+                                                const dayNum = i + 1;
+                                                const expectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                                                const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
+
+                                                let post = (postsData[selectedDay] || [])[i] || { text: "", status: "todo", type: "Static", date: expectedDateStr };
+                                                
+                                                // Auto-refresh: Check if stored post belongs to an older month. If so, render a blank slate!
+                                                if (post.date && post.date !== expectedDateStr) {
+                                                    post = { text: "", status: "todo", type: "Static", date: expectedDateStr };
+                                                }
                                                 
                                                 let statusClasses = "bg-slate-200 text-slate-500 hover:bg-slate-300";
                                                 let statusText = "TODO";
@@ -593,45 +633,20 @@
                                                 return (
                                                     <div key={i} className="flex flex-col md:flex-row items-center gap-3 lg:gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-blue-400 hover:shadow-md relative">
                                                         <div className="w-12 h-12 rounded-xl bg-slate-50 text-slate-400 font-black flex items-center justify-center shadow-inner text-lg flex-shrink-0 border border-slate-100">
-                                                            {i + 1}
+                                                            {dayNum}
                                                         </div>
                                                         
                                                         {/* Custom Dropdown for Post Type */}
                                                         <PostTypeDropdown 
                                                             value={post.type || "Static"} 
-                                                            onChange={(val) => updatePostDetails(i, 'type', val)} 
-                                                            isLast={i >= 26}
+                                                            onChange={(val) => updatePostDetails(i, 'type', val, expectedDateStr)} 
+                                                            isLast={i >= (daysInMonth - 4)}
                                                         />
 
-                                                        {/* Date Picker (DD/MM/YYYY Format Wrapper with Duplicate Prevention) */}
-                                                        <div className="relative w-full md:w-[150px] flex-shrink-0 group cursor-pointer">
-                                                            <input 
-                                                                type="date" 
-                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                                value={post.date || ""} 
-                                                                onClick={(e) => {
-                                                                    if (e.target.showPicker) e.target.showPicker();
-                                                                }}
-                                                                onChange={e => {
-                                                                    const newDate = e.target.value;
-                                                                    if (newDate) {
-                                                                        const otherDates = (postsData[selectedDay] || [])
-                                                                            .map((p, idx) => idx !== i ? p?.date : null)
-                                                                            .filter(Boolean);
-                                                                        if (otherDates.includes(newDate)) {
-                                                                            const formattedDuplicate = newDate.split('-').reverse().join('/');
-                                                                            setErrorMessage(`The date ${formattedDuplicate} is already assigned to another post in ${selectedDay}.`);
-                                                                            setTimeout(() => setErrorMessage(null), 4000);
-                                                                            return; 
-                                                                        }
-                                                                    }
-                                                                    updatePostDetails(i, 'date', newDate);
-                                                                }} 
-                                                            />
-                                                            <div className={`w-full bg-slate-50 border border-slate-100 outline-none text-[11px] font-bold ${post.date ? 'text-slate-600' : 'text-slate-400'} group-focus-within:ring-2 group-focus-within:ring-blue-100 px-4 py-4 rounded-xl transition-all shadow-inner flex items-center justify-between`}>
-                                                                <span>{post.date ? post.date.split('-').reverse().join('/') : "DD/MM/YYYY"}</span>
-                                                                <Icon name="calendar" size={14} className="text-slate-400 opacity-70 ml-2" />
-                                                            </div>
+                                                        {/* Fixed Date Badge - No picker, permanently tied to the day of the month! */}
+                                                        <div className="w-full md:w-[130px] bg-slate-100 border border-slate-200 text-[11px] font-black text-slate-500 px-4 py-4 rounded-xl flex items-center justify-between shadow-inner select-none flex-shrink-0">
+                                                            <span>{displayDateStr}</span>
+                                                            <Icon name="lock" size={12} className="text-slate-300" />
                                                         </div>
 
                                                         <input 
@@ -639,11 +654,11 @@
                                                             placeholder="Enter short details for this post..." 
                                                             className="flex-1 w-full bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-100 p-4 rounded-xl transition-all shadow-inner" 
                                                             value={post.text} 
-                                                            onChange={e => updatePostDetails(i, 'text', e.target.value)} 
+                                                            onChange={e => updatePostDetails(i, 'text', e.target.value, expectedDateStr)} 
                                                         />
                                                         
                                                         <button 
-                                                            onClick={() => updatePostDetails(i, 'status', cyclePostStatus(post.status))} 
+                                                            onClick={() => updatePostDetails(i, 'status', cyclePostStatus(post.status), expectedDateStr)} 
                                                             className={`px-6 py-4 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 btn-interact flex-shrink-0 w-full md:w-[160px] ${statusClasses}`}
                                                         >
                                                             <Icon name={statusIcon} size={16} className={post.status === 'in-progress' ? 'animate-spin' : ''} />
@@ -658,7 +673,7 @@
                             </div>
                         </div>
 
-                        {/* RESOURCES SECTION - FULL WIDTH (Replaced Grid) */}
+                        {/* RESOURCES SECTION - FULL WIDTH */}
                         <section className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm w-full">
                             <h2 className="font-black text-slate-900 mb-6 flex items-center gap-3 uppercase tracking-tighter text-sm"><Icon name="paperclip" className="text-blue-600" /> Resources</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
