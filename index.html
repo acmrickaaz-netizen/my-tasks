@@ -197,13 +197,13 @@
             const [postsData, setPostsData] = useState({}); // State for the daily posts
 
             const clientsData = useMemo(() => ({
+                Master: { name: "Weekly Overview", focus: "Global production status." },
                 Monday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics." },
                 Tuesday: { name: "Fly Universal (UK)", focus: "Last Minute deal templates & flight route maps." },
                 Wednesday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights." },
                 Thursday: { name: "Tours Coach (Canada)", focus: "Group travel imagery & event-based transport ads." },
                 Friday: { name: "Ideal Hajj & Umrah (UK)", focus: "Spiritual guides, package details, & religious iconography." },
-                Saturday: { name: "Maintenance", focus: "Weekly review and planning." },
-                Sunday: { name: "Rest", focus: "Recharge for next week." }
+                Saturday: { name: "Maintenance", focus: "Weekly review and planning." }
             }), []);
 
             const vaultTabs = [
@@ -215,15 +215,20 @@
                 { id: "Global Strategy", label: "Global" }
             ];
 
-            const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-            const actualToday = days[new Date().getDay()];
+            const fullWeekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const todayStr = fullWeekDays[new Date().getDay()];
+            const actualToday = todayStr === "Sunday" ? "Monday" : todayStr;
+            
+            const displayDays = ["Master", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            
             const [selectedDay, setSelectedDay] = useState(actualToday);
             const currentClient = clientsData[selectedDay];
-            const [selectedIdeaClient, setSelectedIdeaClient] = useState(currentClient.name || "Global Strategy");
+            const [selectedIdeaClient, setSelectedIdeaClient] = useState("Global Strategy");
             const [newIdea, setNewIdea] = useState("");
 
-            // Auto-sync Idea Vault tab to the currently selected Day
+            // Auto-sync Idea Vault tab to the currently selected Day (except on Master view)
             useEffect(() => {
+                if (selectedDay === "Master") return; 
                 const clientName = clientsData[selectedDay].name;
                 if (clientName === "Maintenance" || clientName === "Rest") {
                     setSelectedIdeaClient("Global Strategy");
@@ -258,14 +263,15 @@
 
             useEffect(() => {
                 if (!user) return;
-                const path = `/artifacts/${appId}/users/${user.uid}/productionData/current`;
+                
+                // --- PERMANENT GLOBAL CLOUD PATH ---
+                const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 
                 const unsubscribe = docRef.onSnapshot((docSnap) => {
                     if (docSnap.exists) {
                         const data = docSnap.data();
                         if (data.ideas) setIdeas(data.ideas);
-                        if (data.completedTasks) setCompletedTasks(data.completedTasks);
                         if (data.resources) setResources(data.resources);
                         if (data.postsData) setPostsData(data.postsData);
                     }
@@ -283,7 +289,8 @@
                     return;
                 }
                 setIsSyncing(true);
-                const path = `/artifacts/${appId}/users/${user.uid}/productionData/current`;
+                
+                const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 try { 
                     await docRef.set(updates, { merge: true }); 
@@ -330,7 +337,6 @@
             const updatePostDetails = (index, field, value) => {
                 const dayPosts = postsData[selectedDay] ? [...postsData[selectedDay]] : [];
                 
-                // Automatically pad up to 30 posts
                 while(dayPosts.length < 30) dayPosts.push({ text: "", status: "todo", type: "Static", date: "" });
 
                 dayPosts[index] = { ...dayPosts[index], [field]: value };
@@ -363,16 +369,27 @@
                 });
             };
 
+            // Calculates the global progress for the Master view
+            const calculateGlobalProgress = () => {
+                let totalPublished = 0;
+                const workDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                workDays.forEach(day => {
+                    const dayPosts = postsData[day] || [];
+                    totalPublished += dayPosts.filter(p => p && p.status === 'published').length;
+                });
+                return totalPublished;
+            };
+
             return (
                 <div className="min-h-screen pb-28 bg-slate-50">
                     {errorMessage && (
-                        <div className="bg-red-600 text-white text-[10px] font-black text-center py-2 uppercase tracking-[0.2em] sticky top-0 z-[60] shadow-lg animate-pulse">
-                            <Icon name="alert-triangle" size={12} className="inline mr-2" /> {errorMessage}
+                        <div className="bg-red-600 text-white text-[10px] font-black text-center py-2 uppercase tracking-[0.2em] sticky top-0 z-[60] shadow-lg animate-pulse flex items-center justify-center gap-2">
+                            <Icon name="alert-triangle" size={14} /> {errorMessage}
                         </div>
                     )}
 
                     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-                        <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex flex-col items-center md:items-start">
                                 <div className="flex items-center gap-3">
                                     <div className="bg-blue-600 p-2 rounded-xl text-white shadow-md">
@@ -400,6 +417,86 @@
                         </div>
                     </header>
 
+                    {/* ====================================================================== */}
+                    {/* MASTER VIEW RENDERING                                                  */}
+                    {/* ====================================================================== */}
+                    {selectedDay === 'Master' ? (
+                        <main className="max-w-7xl mx-auto px-6 py-10 space-y-10 animate-fade-in">
+                            <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[2rem] px-8 py-8 shadow-xl relative overflow-hidden border border-slate-700">
+                                <div className="absolute -top-16 -right-6 opacity-10 pointer-events-none transition-transform duration-1000 rotate-12">
+                                    <Icon name="globe" size={250} />
+                                </div>
+                                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                                    <div>
+                                        <h2 className="text-[10px] font-black text-blue-400 uppercase mb-2 tracking-[0.4em]">Weekly Overview</h2>
+                                        <h3 className="text-4xl font-[900] tracking-tight leading-none">Master Production Board</h3>
+                                        <p className="text-sm font-medium text-slate-400 mt-4 max-w-xl">A complete bird's-eye view of all client posts for the week. Track global publishing progress at a glance.</p>
+                                    </div>
+                                    <div className="bg-white/10 border border-white/20 p-6 rounded-[2rem] backdrop-blur-md flex flex-col items-center justify-center min-w-[200px]">
+                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Total Weekly Progress</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-green-400">{calculateGlobalProgress()}</span>
+                                            <span className="text-xl font-bold text-slate-400">/ 180</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => {
+                                    const dayPosts = postsData[day] || [];
+                                    const slots = Array.from({length: 30}, (_, i) => i).map(i => dayPosts[i] || { status: 'todo', text: '', type: 'Static' });
+                                    const publishedCount = slots.filter(p => p.status === 'published').length;
+
+                                    return (
+                                        <div key={day} className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col hover:border-blue-400 transition-all hover:-translate-y-1">
+                                            <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
+                                                <div>
+                                                    <h4 className="font-black text-slate-900 uppercase tracking-tighter text-lg">{day}</h4>
+                                                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">{clientsData[day].name}</p>
+                                                </div>
+                                                <div className={`px-4 py-2 rounded-xl text-sm font-black shadow-inner border ${publishedCount === 30 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                                    {publishedCount}/30
+                                                </div>
+                                            </div>
+                                            <div className="p-6 flex flex-col gap-3 flex-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+                                                {slots.map((post, i) => {
+                                                    const isPublished = post.status === 'published';
+                                                    return (
+                                                        <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
+                                                            {isPublished ? (
+                                                                <Icon name="check-circle" className="text-green-500 flex-shrink-0 drop-shadow-sm" size={20} />
+                                                            ) : (
+                                                                <Icon name="circle" className="text-slate-300 flex-shrink-0" size={20} />
+                                                            )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={`text-sm font-bold truncate ${isPublished ? 'text-green-900' : 'text-slate-500'}`}>
+                                                                    {post.text || <span className="italic opacity-40 font-medium">Empty Slot</span>}
+                                                                </p>
+                                                                <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isPublished ? 'text-green-600' : 'text-slate-400'}`}>
+                                                                    {isPublished ? 'Published' : 'Not Published'} • {post.type || 'Static'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <button 
+                                                onClick={() => setSelectedDay(day)} 
+                                                className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest p-4 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                Edit {day} <Icon name="arrow-right" size={14} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </main>
+                    ) : (
+
+                    /* ====================================================================== */
+                    /* STANDARD DAILY VIEW RENDERING                                          */
+                    /* ====================================================================== */
                     <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
                         {/* COMPACT LIVE SESSION BANNER AT TOP */}
                         <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[2rem] px-8 py-6 shadow-xl relative overflow-hidden group border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
@@ -475,13 +572,33 @@
                                                             isLast={i >= 26}
                                                         />
 
-                                                        {/* Date Picker */}
-                                                        <input 
-                                                            type="date" 
-                                                            className="w-full md:w-[130px] bg-slate-50 border border-slate-100 outline-none text-[11px] font-bold text-slate-600 focus:ring-2 focus:ring-blue-100 px-3 py-4 rounded-xl transition-all shadow-inner flex-shrink-0"
-                                                            value={post.date || ""} 
-                                                            onChange={e => updatePostDetails(i, 'date', e.target.value)} 
-                                                        />
+                                                        {/* Date Picker (DD/MM/YYYY Format Wrapper with Duplicate Prevention) */}
+                                                        <div className="relative w-full md:w-[150px] flex-shrink-0 group">
+                                                            <input 
+                                                                type="date" 
+                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                                value={post.date || ""} 
+                                                                onChange={e => {
+                                                                    const newDate = e.target.value;
+                                                                    if (newDate) {
+                                                                        const otherDates = (postsData[selectedDay] || [])
+                                                                            .map((p, idx) => idx !== i ? p?.date : null)
+                                                                            .filter(Boolean);
+                                                                        if (otherDates.includes(newDate)) {
+                                                                            const formattedDuplicate = newDate.split('-').reverse().join('/');
+                                                                            setErrorMessage(`The date ${formattedDuplicate} is already assigned to another post in ${selectedDay}.`);
+                                                                            setTimeout(() => setErrorMessage(null), 4000);
+                                                                            return; 
+                                                                        }
+                                                                    }
+                                                                    updatePostDetails(i, 'date', newDate);
+                                                                }} 
+                                                            />
+                                                            <div className={`w-full bg-slate-50 border border-slate-100 outline-none text-[11px] font-bold ${post.date ? 'text-slate-600' : 'text-slate-400'} group-focus-within:ring-2 group-focus-within:ring-blue-100 px-4 py-4 rounded-xl transition-all shadow-inner flex items-center justify-between`}>
+                                                                <span>{post.date ? post.date.split('-').reverse().join('/') : "DD/MM/YYYY"}</span>
+                                                                <Icon name="calendar" size={14} className="text-slate-400 opacity-70 ml-2" />
+                                                            </div>
+                                                        </div>
 
                                                         <input 
                                                             type="text" 
@@ -600,6 +717,7 @@
                         </div>
 
                     </main>
+                    )}
 
                     <footer className="fixed bottom-0 left-0 right-0 glass-effect px-6 py-4 z-50 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-slate-200">
                         <div className="flex items-center gap-4">
@@ -616,14 +734,22 @@
                         </div>
                         
                         <div className="flex gap-1.5 overflow-x-auto no-scrollbar max-w-full py-1">
-                            {days.map(d => (
+                            {displayDays.map(d => (
                                 <button 
                                     key={d} 
                                     onClick={() => setSelectedDay(d)} 
-                                    className={`flex flex-col items-center justify-center px-5 py-2.5 rounded-xl transition-all min-w-max ${selectedDay === d ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105' : 'bg-white border border-slate-100 hover:bg-slate-50'}`}
+                                    className={`flex flex-col items-center justify-center px-5 py-2 rounded-xl transition-all min-w-max ${
+                                        selectedDay === d 
+                                        ? (d === 'Master' ? 'bg-slate-900 text-white shadow-xl scale-105' : 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105') 
+                                        : 'bg-white border border-slate-100 hover:bg-slate-50'
+                                    }`}
                                 >
-                                    <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${selectedDay === d ? 'text-white' : 'text-slate-400'}`}>{d}</span>
-                                    <span className={`text-[9px] font-bold mt-0.5 ${selectedDay === d ? 'text-blue-200' : 'text-slate-500'}`}>{clientsData[d].name}</span>
+                                    <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${selectedDay === d ? 'text-white' : 'text-slate-400'}`}>
+                                        {d}
+                                    </span>
+                                    <span className={`text-[9px] font-bold mt-0.5 ${selectedDay === d ? (d === 'Master' ? 'text-slate-300' : 'text-blue-200') : 'text-slate-500'}`}>
+                                        {clientsData[d].name}
+                                    </span>
                                 </button>
                             ))}
                         </div>
