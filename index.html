@@ -492,6 +492,7 @@
                                             <div className="p-6 flex flex-col gap-3 flex-1 max-h-[400px] overflow-y-auto custom-scrollbar">
                                                 {slots.map((post, i) => {
                                                     const isPublished = post.status === 'published';
+                                                    const formattedDate = post.date ? post.date.split('-').reverse().join('/') : 'No Date';
                                                     return (
                                                         <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
                                                             {isPublished ? (
@@ -504,7 +505,7 @@
                                                                     {post.text || <span className="italic opacity-40 font-medium">Empty Slot</span>}
                                                                 </p>
                                                                 <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isPublished ? 'text-green-600' : 'text-slate-400'}`}>
-                                                                    {isPublished ? 'Published' : 'Not Published'} • {post.type || 'Static'}
+                                                                    {isPublished ? 'Published' : 'Not Published'} • {formattedDate} • {post.type || 'Static'}
                                                                 </p>
                                                             </div>
                                                         </div>
