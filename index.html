@@ -45,14 +45,15 @@
             animation: savePulse 1.5s infinite;
         }
 
-        /* Customizing the date input to fit the theme */
+        /* Customizing the date input to ensure it is fully clickable even when invisible */
         input[type="date"]::-webkit-calendar-picker-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
             cursor: pointer;
-            opacity: 0.6;
-            transition: 0.2s;
-        }
-        input[type="date"]::-webkit-calendar-picker-indicator:hover {
-            opacity: 1;
         }
     </style>
 </head>
@@ -191,10 +192,10 @@
             const [currentTime, setCurrentTime] = useState(new Date());
             
             // Content State
-            const [completedTasks, setCompletedTasks] = useState([]);
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
             const [postsData, setPostsData] = useState({}); // State for the daily posts
+            const [competitorsData, setCompetitorsData] = useState({}); // State for Competitors
 
             const clientsData = useMemo(() => ({
                 Master: { name: "Weekly Overview", focus: "Global production status." },
@@ -274,6 +275,7 @@
                         if (data.ideas) setIdeas(data.ideas);
                         if (data.resources) setResources(data.resources);
                         if (data.postsData) setPostsData(data.postsData);
+                        if (data.competitorsData) setCompetitorsData(data.competitorsData);
                     }
                 }, (err) => {
                     console.error("Firestore Error:", err);
@@ -346,6 +348,31 @@
                 syncToCloud({ postsData: newPostsData });
             };
 
+            // Competitor Functions
+            const addCompetitorRow = () => {
+                const dayCompetitors = competitorsData[selectedDay] ? [...competitorsData[selectedDay]] : [];
+                dayCompetitors.push({ id: Date.now(), name: "", url: "" });
+                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                setCompetitorsData(newCompData);
+                syncToCloud({ competitorsData: newCompData });
+            };
+
+            const updateCompetitor = (index, field, value) => {
+                const dayCompetitors = [...(competitorsData[selectedDay] || [])];
+                dayCompetitors[index] = { ...dayCompetitors[index], [field]: value };
+                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                setCompetitorsData(newCompData);
+                syncToCloud({ competitorsData: newCompData });
+            };
+
+            const removeCompetitor = (index) => {
+                const dayCompetitors = [...(competitorsData[selectedDay] || [])];
+                dayCompetitors.splice(index, 1);
+                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                setCompetitorsData(newCompData);
+                syncToCloud({ competitorsData: newCompData });
+            };
+
             useEffect(() => {
                 const timer = setInterval(() => setCurrentTime(new Date()), 1000);
                 return () => clearInterval(timer);
@@ -353,7 +380,6 @@
 
             const clientRes = resources[currentClient.name] || { colors: "", link: "", hashtags: "" };
 
-            // Helper function to turn URLs in idea text into clickable links
             const renderTextWithLinks = (text) => {
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 const parts = text.split(urlRegex);
@@ -383,7 +409,7 @@
             return (
                 <div className="min-h-screen pb-28 bg-slate-50">
                     {errorMessage && (
-                        <div className="bg-red-600 text-white text-[10px] font-black text-center py-2 uppercase tracking-[0.2em] sticky top-0 z-[60] shadow-lg animate-pulse flex items-center justify-center gap-2">
+                        <div className="bg-red-600 text-white text-[10px] font-black text-center py-3 uppercase tracking-[0.2em] sticky top-0 z-[60] shadow-lg animate-pulse flex items-center justify-center gap-2">
                             <Icon name="alert-triangle" size={14} /> {errorMessage}
                         </div>
                     )}
@@ -573,7 +599,7 @@
                                                         />
 
                                                         {/* Date Picker (DD/MM/YYYY Format Wrapper with Duplicate Prevention) */}
-                                                        <div className="relative w-full md:w-[150px] flex-shrink-0 group">
+                                                        <div className="relative w-full md:w-[150px] flex-shrink-0 group cursor-pointer">
                                                             <input 
                                                                 type="date" 
                                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -644,6 +670,61 @@
                                 </div>
                             </div>
                         </section>
+
+                        {/* COMPETITORS BLOCK */}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden w-full h-full flex flex-col">
+                            <div className="px-8 py-6 border-b border-slate-100 bg-red-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-red-500 p-2.5 rounded-xl text-white shadow-md"><Icon name="target" size={20} /></div>
+                                    <div>
+                                        <h2 className="font-black text-slate-900 text-xl tracking-tighter uppercase">Competitors</h2>
+                                        <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Track Market Rivals</p>
+                                    </div>
+                                </div>
+                                <button onClick={addCompetitorRow} className="bg-white border border-slate-200 text-slate-700 px-5 py-3 rounded-xl text-[10px] font-black uppercase hover:border-red-300 hover:text-red-500 transition-all shadow-sm flex items-center justify-center gap-2">
+                                    <Icon name="plus" size={14} /> Add Rival
+                                </button>
+                            </div>
+                            <div className="p-6 flex flex-col gap-4 bg-slate-50/30 flex-1">
+                                {(competitorsData[selectedDay] || []).length > 0 ? (
+                                    (competitorsData[selectedDay] || []).map((comp, i) => (
+                                        <div key={comp.id} className="flex flex-col md:flex-row items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-red-300 group">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 font-black flex items-center justify-center shadow-inner text-sm flex-shrink-0 border border-slate-100">
+                                                {i + 1}
+                                            </div>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Competitor Name..." 
+                                                className="w-full md:w-1/3 bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-red-100 p-4 rounded-xl transition-all shadow-inner"
+                                                value={comp.name}
+                                                onChange={(e) => updateCompetitor(i, 'name', e.target.value)}
+                                            />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Website or Social Link..." 
+                                                className="flex-1 w-full bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-red-100 p-4 rounded-xl transition-all shadow-inner"
+                                                value={comp.url}
+                                                onChange={(e) => updateCompetitor(i, 'url', e.target.value)}
+                                            />
+                                            {comp.url && (
+                                                <a href={comp.url} target="_blank" className="hidden md:flex p-4 text-slate-400 hover:text-blue-500 transition-all bg-slate-50 hover:bg-blue-50 rounded-xl">
+                                                    <Icon name="external-link" size={18} />
+                                                </a>
+                                            )}
+                                            <button onClick={() => removeCompetitor(i)} className="w-full md:w-auto p-4 text-slate-400 hover:text-red-500 transition-all bg-slate-50 hover:bg-red-50 rounded-xl flex items-center justify-center">
+                                                <Icon name="trash-2" size={18} />
+                                            </button>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-white flex flex-col items-center justify-center h-full">
+                                        <Icon name="users" size={48} className="text-slate-200 mb-4" />
+                                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">No competitors tracked for {selectedDay}</p>
+                                        <p className="text-xs text-slate-500 font-medium">Click "Add Rival" to start tracking.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                         {/* IDEA VAULT - FULL WIDTH AT THE BOTTOM */}
                         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden border-l-[12px] border-l-yellow-400 w-full">
