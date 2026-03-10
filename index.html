@@ -593,13 +593,19 @@
                                                             isLast={i >= 26}
                                                         />
 
-                                                        {/* Date Picker */}
-                                                        <input 
-                                                            type="date" 
-                                                            className="w-full md:w-[130px] bg-slate-50 border border-slate-100 outline-none text-[11px] font-bold text-slate-600 focus:ring-2 focus:ring-blue-100 px-3 py-4 rounded-xl transition-all shadow-inner flex-shrink-0"
-                                                            value={post.date || ""} 
-                                                            onChange={e => updatePostDetails(i, 'date', e.target.value)} 
-                                                        />
+                                                        {/* Date Picker (DD/MM/YYYY Format Wrapper) */}
+                                                        <div className="relative w-full md:w-[130px] flex-shrink-0 group">
+                                                            <input 
+                                                                type="date" 
+                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                                value={post.date || ""} 
+                                                                onChange={e => updatePostDetails(i, 'date', e.target.value)} 
+                                                            />
+                                                            <div className={`w-full bg-slate-50 border border-slate-100 outline-none text-[11px] font-bold ${post.date ? 'text-slate-600' : 'text-slate-400'} group-focus-within:ring-2 group-focus-within:ring-blue-100 px-3 py-4 rounded-xl transition-all shadow-inner flex items-center justify-between`}>
+                                                                <span>{post.date ? post.date.split('-').reverse().join('/') : "DD/MM/YYYY"}</span>
+                                                                <Icon name="calendar" size={14} className="text-slate-400 opacity-70" />
+                                                            </div>
+                                                        </div>
 
                                                         <input 
                                                             type="text" 
