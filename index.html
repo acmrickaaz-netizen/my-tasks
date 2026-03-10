@@ -44,6 +44,17 @@
         .animate-save {
             animation: savePulse 1.5s infinite;
         }
+
+        /* Customizing the date input to ensure it is fully clickable even when invisible */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -87,6 +98,30 @@
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
 
+        // Helper to parse dynamic dates (like "1st Mon", "Jan 14") to actual integer days of the month
+        const parseEventDay = (dateStr, year, monthIndex) => {
+            const exactMatch = dateStr.match(/^[A-Za-z]{3}\s(\d+)/);
+            if (exactMatch) return parseInt(exactMatch[1], 10);
+            
+            const nthMatch = dateStr.match(/^(1st|2nd|3rd|4th)\s(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/);
+            if (nthMatch) {
+                const nthMap = { "1st": 1, "2nd": 2, "3rd": 3, "4th": 4 };
+                const dayMap = { "Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6 };
+                const targetN = nthMap[nthMatch[1]];
+                const targetD = dayMap[nthMatch[2]];
+                let count = 0;
+                for (let i = 1; i <= 31; i++) {
+                    const d = new Date(year, monthIndex, i);
+                    if (d.getMonth() !== monthIndex) break;
+                    if (d.getDay() === targetD) {
+                        count++;
+                        if (count === targetN) return i;
+                    }
+                }
+            }
+            return null; // For specific holidays labeled "Varies"
+        };
+
         // --- Smart Link Preview Component ---
         const IdeaLinkPreview = ({ url, domain }) => {
             const [imageUrl, setImageUrl] = useState(null);
@@ -94,7 +129,6 @@
             useEffect(() => {
                 const fetchPreview = async () => {
                     try {
-                        // Using Microlink API to extract Open Graph images from the pasted URL
                         const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
                         const data = await res.json();
                         if (data.status === 'success' && data.data?.image?.url) {
@@ -198,6 +232,31 @@
                 return weeks;
             }, [daysInMonth]);
 
+            // Calendar Special Days Data
+            const calendarEvents = useMemo(() => [
+                { month: "January", events: [{ date: "Jan 1", name: "New Year's Day", type: "Global" }, { date: "Jan 25", name: "Burns Night", type: "UK" }, { date: "Jan 27", name: "Int. Holocaust Remembrance Day", type: "Global" }] },
+                { month: "February", events: [{ date: "Feb 14", name: "Valentine’s Day", type: "Global" }, { date: "3rd Mon", name: "Family Day", type: "Canada" }] },
+                { month: "March", events: [{ date: "Mar 1", name: "St. David's Day (Wales)", type: "UK" }, { date: "Mar 8", name: "Int. Women's Day", type: "Global" }, { date: "Mar 9", name: "Commonwealth Day", type: "UK" }, { date: "Mar 15", name: "Mothering Sunday", type: "UK" }, { date: "Mar 17", name: "St. Patrick's Day", type: "UK/Int" }, { date: "Mar 22", name: "World Water Day", type: "Global" }] },
+                { month: "April", events: [{ date: "Apr 1", name: "April Fools' Day", type: "Global" }, { date: "Apr 3", name: "Good Friday", type: "UK/Can" }, { date: "Apr 6", name: "Easter Monday", type: "UK/Can" }, { date: "Apr 22", name: "Earth Day", type: "Global" }, { date: "Apr 23", name: "St. George's Day (England)", type: "UK" }] },
+                { month: "May", events: [{ date: "May 1", name: "May Day / Labour Day", type: "UK/Int" }, { date: "May 4", name: "Early May Bank Holiday", type: "UK" }, { date: "May 25", name: "Spring Bank Holiday", type: "UK" }, { date: "Varies", name: "Victoria Day", type: "Canada" }] },
+                { month: "June", events: [{ date: "Jun 5", name: "World Environment Day", type: "Global" }, { date: "Jun 13", name: "King's Official Birthday", type: "UK" }, { date: "Jun 21", name: "Father's Day", type: "Global" }, { date: "Jun 21", name: "Nat. Indigenous Peoples Day", type: "Canada" }] },
+                { month: "July", events: [{ date: "Jul 1", name: "Canada Day", type: "Canada" }, { date: "Jul 13", name: "Orangemen's Day (NI)", type: "UK" }] },
+                { month: "August", events: [{ date: "1st Mon", name: "Civic Holiday", type: "Canada" }, { date: "Aug 3", name: "Summer Bank Holiday (Scotland)", type: "UK" }, { date: "Aug 31", name: "August Bank Holiday", type: "UK" }] },
+                { month: "September", events: [{ date: "1st Mon", name: "Labour Day", type: "Canada" }, { date: "Sep 30", name: "Truth & Reconciliation Day", type: "Canada" }] },
+                { month: "October", events: [{ date: "2nd Mon", name: "Thanksgiving", type: "Canada" }, { date: "Oct 31", name: "Halloween", type: "Global" }] },
+                { month: "November", events: [{ date: "Nov 5", name: "Bonfire Night (Guy Fawkes)", type: "UK" }, { date: "Nov 11", name: "Remembrance Day", type: "UK/Can" }, { date: "Nov 30", name: "St. Andrew's Day (Scotland)", type: "UK" }] },
+                { month: "December", events: [{ date: "Dec 25", name: "Christmas Day", type: "Global" }, { date: "Dec 26", name: "Boxing Day", type: "UK/Can" }, { date: "Dec 31", name: "New Year's Eve", type: "Global" }] }
+            ], []);
+
+            const getEventsForDay = useCallback((dayNum) => {
+                const monthData = calendarEvents.find(m => m.month === monthName);
+                if (!monthData) return [];
+                return monthData.events.filter(ev => {
+                    const evDay = parseEventDay(ev.date, currentYear, currentMonth);
+                    return evDay === dayNum;
+                });
+            }, [monthName, currentYear, currentMonth, calendarEvents]);
+
             // Content State
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
@@ -206,6 +265,7 @@
 
             const clientsData = useMemo(() => ({
                 Master: { name: "Monthly Overview", focus: "Global production status." },
+                Calendar: { name: "Events & Holidays", focus: "UK, Canada & Int. Key Dates." },
                 Monday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics." },
                 Tuesday: { name: "Fly Universal (UK)", focus: "Last Minute deal templates & flight route maps." },
                 Wednesday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights." },
@@ -227,16 +287,16 @@
             const todayStr = fullWeekDays[new Date().getDay()];
             const actualToday = todayStr === "Sunday" ? "Monday" : todayStr;
             
-            const displayDays = ["Master", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const displayDays = ["Master", "Calendar", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
             
             const [selectedDay, setSelectedDay] = useState(actualToday);
             const currentClient = clientsData[selectedDay];
             const [selectedIdeaClient, setSelectedIdeaClient] = useState("Global Strategy");
             const [newIdea, setNewIdea] = useState("");
 
-            // Auto-sync Idea Vault tab to the currently selected Day (except on Master view)
+            // Auto-sync Idea Vault tab to the currently selected Day (except on Master/Calendar view)
             useEffect(() => {
-                if (selectedDay === "Master") return; 
+                if (selectedDay === "Master" || selectedDay === "Calendar") return; 
                 const clientName = clientsData[selectedDay].name;
                 if (clientName === "Maintenance" || clientName === "Rest") {
                     setSelectedIdeaClient("Global Strategy");
@@ -471,9 +531,55 @@
                     </header>
 
                     {/* ====================================================================== */}
-                    {/* MASTER VIEW RENDERING                                                  */}
+                    {/* CALENDAR VIEW RENDERING                                                */}
                     {/* ====================================================================== */}
-                    {selectedDay === 'Master' ? (
+                    {selectedDay === 'Calendar' ? (
+                        <main className="max-w-7xl mx-auto px-6 py-10 space-y-10 animate-fade-in">
+                            <section className="bg-gradient-to-br from-indigo-900 to-purple-900 text-white rounded-[2rem] px-8 py-8 shadow-xl relative overflow-hidden border border-indigo-700">
+                                <div className="absolute -top-16 -right-6 opacity-10 pointer-events-none transition-transform duration-1000 rotate-12">
+                                    <Icon name="calendar-heart" size={250} />
+                                </div>
+                                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                                    <div>
+                                        <h2 className="text-[10px] font-black text-purple-300 uppercase mb-2 tracking-[0.4em]">Content Calendar</h2>
+                                        <h3 className="text-4xl font-[900] tracking-tight leading-none">Events & Holidays</h3>
+                                        <p className="text-sm font-medium text-indigo-200 mt-4 max-w-xl">A curated list of important annual events, international days, and local holidays for the UK and Canada to help you plan timely content.</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {calendarEvents.map((monthData, idx) => (
+                                    <div key={idx} className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:border-purple-300 transition-all hover:shadow-md">
+                                        <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-3">
+                                            <div className="bg-indigo-100 text-indigo-600 p-2 rounded-xl">
+                                                <Icon name="calendar-days" size={16} />
+                                            </div>
+                                            <h4 className="font-black text-slate-900 uppercase tracking-tighter text-lg">{monthData.month}</h4>
+                                        </div>
+                                        <div className="p-6 flex flex-col gap-4 flex-1">
+                                            {monthData.events.map((event, eIdx) => (
+                                                <div key={eIdx} className="flex gap-3">
+                                                    <div className="w-12 pt-0.5 flex-shrink-0">
+                                                        <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">{event.date}</span>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-bold text-slate-800 leading-tight">{event.name}</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{event.type}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </main>
+                    ) : 
+                    
+                    /* ====================================================================== */
+                    /* MASTER VIEW RENDERING                                                  */
+                    /* ====================================================================== */
+                    selectedDay === 'Master' ? (
                         <main className="max-w-7xl mx-auto px-6 py-10 space-y-10 animate-fade-in">
                             <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[2rem] px-8 py-8 shadow-xl relative overflow-hidden border border-slate-700">
                                 <div className="absolute -top-16 -right-6 opacity-10 pointer-events-none transition-transform duration-1000 rotate-12">
@@ -529,7 +635,8 @@
                                                 {slots.map((post, i) => {
                                                     const isPublished = post.status === 'published';
                                                     const displayDateStr = `${String(i + 1).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
-                                                    
+                                                    const todaysEvents = getEventsForDay(i + 1);
+
                                                     return (
                                                         <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
                                                             {isPublished ? (
@@ -544,6 +651,15 @@
                                                                 <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isPublished ? 'text-green-600' : 'text-slate-400'}`}>
                                                                     {isPublished ? 'Published' : 'Not Published'} • {displayDateStr} • {post.type || 'Static'}
                                                                 </p>
+                                                                {todaysEvents.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                        {todaysEvents.map((ev, eIdx) => (
+                                                                            <span key={eIdx} className="bg-purple-100 border border-purple-200 text-purple-700 text-[8px] px-1.5 py-0.5 rounded-md font-bold truncate">
+                                                                                ⭐ {ev.name}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     );
@@ -608,6 +724,7 @@
                                                 const dayNum = i + 1;
                                                 const expectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                                                 const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
+                                                const todaysEvents = getEventsForDay(dayNum);
 
                                                 let post = (postsData[selectedDay] || [])[i] || { text: "", status: "todo", type: "Static", date: expectedDateStr };
                                                 
@@ -643,23 +760,35 @@
                                                             isLast={i >= (daysInMonth - 4)}
                                                         />
 
-                                                        {/* Fixed Date Badge - No picker, permanently tied to the day of the month! */}
-                                                        <div className="w-full md:w-[130px] bg-slate-100 border border-slate-200 text-[11px] font-black text-slate-500 px-4 py-4 rounded-xl flex items-center justify-between shadow-inner select-none flex-shrink-0">
-                                                            <span>{displayDateStr}</span>
-                                                            <Icon name="lock" size={12} className="text-slate-300" />
+                                                        {/* Fixed Date Badge & Events - No picker, permanently tied to the day of the month! */}
+                                                        <div className="flex flex-col gap-1 w-full md:w-[140px] flex-shrink-0">
+                                                            <div className="w-full bg-slate-100 border border-slate-200 text-[11px] font-black text-slate-500 px-4 py-4 rounded-xl flex items-center justify-between shadow-inner select-none cursor-not-allowed">
+                                                                <span>{displayDateStr}</span>
+                                                                <Icon name="lock" size={12} className="text-slate-300" />
+                                                            </div>
+                                                            {todaysEvents.length > 0 && (
+                                                                <div className="flex flex-col gap-1 mt-0.5">
+                                                                    {todaysEvents.map((ev, eIdx) => (
+                                                                        <div key={eIdx} className="bg-purple-100 border border-purple-200 rounded text-[9px] font-bold text-purple-800 px-2 py-1 shadow-sm flex items-center gap-1.5" title={`${ev.name} (${ev.type})`}>
+                                                                            <Icon name="star" size={10} className="text-purple-600 flex-shrink-0" />
+                                                                            <span className="truncate">{ev.name}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </div>
 
                                                         <input 
                                                             type="text" 
                                                             placeholder="Enter short details for this post..." 
-                                                            className="flex-1 w-full bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-100 p-4 rounded-xl transition-all shadow-inner" 
+                                                            className="flex-1 w-full h-[50px] self-start bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-100 px-4 rounded-xl transition-all shadow-inner" 
                                                             value={post.text} 
                                                             onChange={e => updatePostDetails(i, 'text', e.target.value, expectedDateStr)} 
                                                         />
                                                         
                                                         <button 
                                                             onClick={() => updatePostDetails(i, 'status', cyclePostStatus(post.status), expectedDateStr)} 
-                                                            className={`px-6 py-4 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 btn-interact flex-shrink-0 w-full md:w-[160px] ${statusClasses}`}
+                                                            className={`px-6 py-4 h-[50px] self-start rounded-xl text-[10px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 btn-interact flex-shrink-0 w-full md:w-[160px] ${statusClasses}`}
                                                         >
                                                             <Icon name={statusIcon} size={16} className={post.status === 'in-progress' ? 'animate-spin' : ''} />
                                                             {statusText}
@@ -844,14 +973,14 @@
                                     onClick={() => setSelectedDay(d)} 
                                     className={`flex flex-col items-center justify-center px-5 py-2 rounded-xl transition-all min-w-max ${
                                         selectedDay === d 
-                                        ? (d === 'Master' ? 'bg-slate-900 text-white shadow-xl scale-105' : 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105') 
+                                        ? (d === 'Master' || d === 'Calendar' ? 'bg-slate-900 text-white shadow-xl scale-105' : 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105') 
                                         : 'bg-white border border-slate-100 hover:bg-slate-50'
                                     }`}
                                 >
                                     <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${selectedDay === d ? 'text-white' : 'text-slate-400'}`}>
                                         {d}
                                     </span>
-                                    <span className={`text-[9px] font-bold mt-0.5 ${selectedDay === d ? (d === 'Master' ? 'text-slate-300' : 'text-blue-200') : 'text-slate-500'}`}>
+                                    <span className={`text-[9px] font-bold mt-0.5 ${selectedDay === d ? (d === 'Master' || d === 'Calendar' ? 'text-slate-300' : 'text-blue-200') : 'text-slate-500'}`}>
                                         {clientsData[d].name}
                                     </span>
                                 </button>
