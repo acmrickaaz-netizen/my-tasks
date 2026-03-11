@@ -215,6 +215,7 @@
             const [currentDateObj, setCurrentDateObj] = useState(new Date());
             const currentYear = currentDateObj.getFullYear();
             const currentMonth = currentDateObj.getMonth();
+            const currentDayOfMonth = currentDateObj.getDate();
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             const monthName = currentDateObj.toLocaleString('default', { month: 'long' });
             
@@ -633,12 +634,19 @@
                                             </div>
                                             <div className="p-6 flex flex-col gap-3 flex-1 max-h-[400px] overflow-y-auto custom-scrollbar">
                                                 {slots.map((post, i) => {
+                                                    const dayNum = i + 1;
+                                                    const isToday = dayNum === currentDayOfMonth;
                                                     const isPublished = post.status === 'published';
-                                                    const displayDateStr = `${String(i + 1).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
-                                                    const todaysEvents = getEventsForDay(i + 1);
+                                                    const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
+                                                    const todaysEvents = getEventsForDay(dayNum);
 
                                                     return (
-                                                        <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
+                                                        <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-all relative ${isToday ? (isPublished ? 'bg-green-100 border-green-400 shadow-md ring-2 ring-green-200' : 'bg-blue-50 border-blue-400 shadow-md ring-2 ring-blue-100') : (isPublished ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-slate-50 border-slate-100')}`}>
+                                                            {isToday && (
+                                                                <div className={`absolute -top-2.5 right-4 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white shadow-sm ${isPublished ? 'bg-green-500' : 'bg-blue-500'}`}>
+                                                                    Today
+                                                                </div>
+                                                            )}
                                                             {isPublished ? (
                                                                 <Icon name="check-circle" className="text-green-500 flex-shrink-0 drop-shadow-sm" size={20} />
                                                             ) : (
@@ -722,6 +730,7 @@
                                             {Array.from({length: week.count}, (_, idx) => week.start + idx).map(i => {
                                                 // Calculate exact fixed dates for this month
                                                 const dayNum = i + 1;
+                                                const isToday = dayNum === currentDayOfMonth;
                                                 const expectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                                                 const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
                                                 const todaysEvents = getEventsForDay(dayNum);
@@ -748,9 +757,10 @@
                                                 }
 
                                                 return (
-                                                    <div key={i} className="flex flex-col md:flex-row items-center gap-3 lg:gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-blue-400 hover:shadow-md relative">
-                                                        <div className="w-12 h-12 rounded-xl bg-slate-50 text-slate-400 font-black flex items-center justify-center shadow-inner text-lg flex-shrink-0 border border-slate-100">
-                                                            {dayNum}
+                                                    <div key={i} className={`flex flex-col md:flex-row items-center gap-3 lg:gap-4 p-4 rounded-2xl border shadow-sm transition-all hover:border-blue-400 hover:shadow-md relative ${isToday ? 'bg-blue-50/40 border-blue-300 ring-4 ring-blue-50' : 'bg-white border-slate-200'}`}>
+                                                        <div className={`w-12 h-12 rounded-xl font-black flex flex-col items-center justify-center shadow-inner flex-shrink-0 border ${isToday ? 'bg-blue-600 text-white border-blue-700 shadow-md text-base' : 'bg-slate-50 text-slate-400 border-slate-100 text-lg'}`}>
+                                                            {isToday && <span className="text-[6px] leading-none mb-0.5 uppercase tracking-widest opacity-90">Today</span>}
+                                                            <span className="leading-none">{dayNum}</span>
                                                         </div>
                                                         
                                                         {/* Custom Dropdown for Post Type */}
@@ -762,9 +772,9 @@
 
                                                         {/* Fixed Date Badge & Events - No picker, permanently tied to the day of the month! */}
                                                         <div className="flex flex-col gap-1 w-full md:w-[140px] flex-shrink-0">
-                                                            <div className="w-full bg-slate-100 border border-slate-200 text-[11px] font-black text-slate-500 px-4 py-4 rounded-xl flex items-center justify-between shadow-inner select-none cursor-not-allowed">
+                                                            <div className={`w-full border text-[11px] font-black px-4 py-4 rounded-xl flex items-center justify-between shadow-inner select-none cursor-not-allowed ${isToday ? 'bg-white border-blue-200 text-blue-600' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
                                                                 <span>{displayDateStr}</span>
-                                                                <Icon name="lock" size={12} className="text-slate-300" />
+                                                                <Icon name="lock" size={12} className={isToday ? "text-blue-400" : "text-slate-300"} />
                                                             </div>
                                                             {todaysEvents.length > 0 && (
                                                                 <div className="flex flex-col gap-1 mt-0.5">
@@ -781,14 +791,14 @@
                                                         <input 
                                                             type="text" 
                                                             placeholder="Enter short details for this post..." 
-                                                            className="flex-1 w-full h-[50px] self-start bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-100 px-4 rounded-xl transition-all shadow-inner" 
+                                                            className={`flex-1 w-full h-[50px] self-start outline-none text-sm font-bold placeholder-slate-400 focus:ring-2 px-4 rounded-xl transition-all shadow-inner ${isToday ? 'bg-white text-slate-800 focus:ring-blue-200 border border-blue-100' : 'bg-slate-50 text-slate-700 focus:ring-blue-100 border border-transparent'}`} 
                                                             value={post.text} 
                                                             onChange={e => updatePostDetails(i, 'text', e.target.value, expectedDateStr)} 
                                                         />
                                                         
                                                         <button 
                                                             onClick={() => updatePostDetails(i, 'status', cyclePostStatus(post.status), expectedDateStr)} 
-                                                            className={`px-6 py-4 h-[50px] self-start rounded-xl text-[10px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 btn-interact flex-shrink-0 w-full md:w-[160px] ${statusClasses}`}
+                                                            className={`px-6 py-4 h-[50px] self-start rounded-xl text-[10px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 btn-interact flex-shrink-0 w-full md:w-[160px] ${statusClasses} ${isToday && post.status === 'todo' ? 'border border-blue-200 shadow-sm' : ''}`}
                                                         >
                                                             <Icon name={statusIcon} size={16} className={post.status === 'in-progress' ? 'animate-spin' : ''} />
                                                             {statusText}
