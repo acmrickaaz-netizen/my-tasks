@@ -747,6 +747,11 @@
                                                 const expectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                                                 const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
                                                 const todaysEvents = getEventsForDay(dayNum);
+                                                
+                                                // Get Date Object to find Day of the Week
+                                                const rowDateObj = new Date(currentYear, currentMonth, dayNum);
+                                                const dayOfWeekStr = rowDateObj.toLocaleDateString('en-GB', { weekday: 'short' });
+                                                const isSunday = rowDateObj.getDay() === 0;
 
                                                 let post = (postsData[selectedDay] || [])[i] || { text: "", status: "todo", type: "Static", date: expectedDateStr };
                                                 
@@ -784,9 +789,12 @@
                                                         />
 
                                                         {/* Fixed Date Badge & Events - No picker, permanently tied to the day of the month! */}
-                                                        <div className="flex flex-col gap-1 w-full md:w-[140px] flex-shrink-0">
+                                                        <div className="flex flex-col gap-1 w-full md:w-[155px] flex-shrink-0">
                                                             <div className={`w-full border text-[11px] font-black px-4 py-4 rounded-xl flex items-center justify-between shadow-inner select-none cursor-not-allowed ${isToday ? 'bg-white border-blue-200 text-blue-600' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
-                                                                <span>{displayDateStr}</span>
+                                                                <span className="flex items-center gap-1.5">
+                                                                    {displayDateStr}
+                                                                    <span className={isSunday ? "text-red-500 opacity-100" : "opacity-60"}>{dayOfWeekStr}</span>
+                                                                </span>
                                                                 <Icon name="lock" size={12} className={isToday ? "text-blue-400" : "text-slate-300"} />
                                                             </div>
                                                             {todaysEvents.length > 0 && (
