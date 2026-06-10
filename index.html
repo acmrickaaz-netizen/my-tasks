@@ -159,6 +159,51 @@
             );
         };
 
+        // --- Custom Dropdown Component for Post Types ---
+        const PostTypeDropdown = ({ value, onChange, isLast }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const options = [
+                { id: 'Static', icon: 'image', label: 'Static' },
+                { id: 'Video', icon: 'video', label: 'Video' },
+                { id: 'Carousel', icon: 'layers', label: 'Carousel' }
+            ];
+
+            const currentOption = options.find(o => o.id === value) || options[0];
+
+            return (
+                <div className="relative w-full">
+                    <button 
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="w-full bg-slate-50 border border-slate-200 outline-none text-xs font-bold text-slate-700 px-4 py-3 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-between gap-2 hover:bg-white focus:ring-2 focus:ring-blue-100"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <Icon name={currentOption.icon} size={14} className="text-blue-500" />
+                            {currentOption.label}
+                        </div>
+                        <Icon name="chevron-down" size={14} className="text-slate-400" />
+                    </button>
+                    
+                    {isOpen && (
+                        <>
+                            <div className="fixed inset-0 z-[50]" onClick={() => setIsOpen(false)}></div>
+                            <div className={`absolute left-0 w-full bg-white border border-slate-100 rounded-xl shadow-2xl z-[60] overflow-hidden flex flex-col py-1 ${isLast ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
+                                {options.map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        onClick={() => { onChange(opt.id); setIsOpen(false); }}
+                                        className="w-full text-left px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2.5 transition-all"
+                                    >
+                                        <Icon name={opt.icon} size={14} className={value === opt.id ? "text-blue-600" : "text-slate-400"} />
+                                        <span className={value === opt.id ? "text-slate-900" : ""}>{opt.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        };
+
         const App = () => {
             const [user, setUser] = useState(null);
             const [authStatus, setAuthStatus] = useState('connecting');
@@ -172,7 +217,7 @@
             const [selectedIdeaClient, setSelectedIdeaClient] = useState("Global Strategy");
             const [newIdea, setNewIdea] = useState("");
             
-            // Modal state for editing a specific post
+            // Modal state for editing a specific post in the calendar view
             const [selectedPostDayIdx, setSelectedPostDayIdx] = useState(null);
 
             // Current Date/Month Setup for Auto-Refreshing calendar structure
@@ -219,7 +264,7 @@
             const [competitorsData, setCompetitorsData] = useState({});
 
             const clientsData = useMemo(() => ({
-                Master: { name: "Weekly Overview", focus: "Global production status.", icon: "layout-dashboard" },
+                Master: { name: "Monthly Overview", focus: "Global production status.", icon: "layout-dashboard" },
                 Calendar: { name: "Events & Holidays", focus: "UK, Canada & Int. Key Dates.", icon: "calendar-heart" },
                 Monday: { name: "Tours Coach (Canada)", focus: "Group travel imagery & event-based transport ads.", icon: "bus" },
                 Tuesday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics.", icon: "plane" },
@@ -413,7 +458,7 @@
             }, []);
 
             // Safe fallback logic for resources to prevent crashes if partially saved
-            const currentClientSafe = currentClient || { name: "", focus: "", icon: "layout-dashboard" };
+            const currentClientSafe = clientsData[selectedDay] || { name: "", focus: "", icon: "layout-dashboard" };
             const clientRes = resources[currentClientSafe.name] || { colors: "", link: "" };
             const safeColors = clientRes.colors || "";
             const safeLink = clientRes.link || "";
@@ -539,7 +584,7 @@
                             </div>
 
                             <div className="hidden lg:block">
-                                <h2 className="text-lg font-bold tracking-tight text-slate-900">{clientsData[selectedDay]?.name || "Master"}</h2>
+                                <h2 className="text-lg font-bold tracking-tight text-slate-900">{currentClientSafe.name || "Master"}</h2>
                                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Workspace • {selectedDay}</p>
                             </div>
 
@@ -561,7 +606,6 @@
                         {/* Scrolling Container */}
                         <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar">
                             
-                            {/* MASTER VIEW */}
                             {selectedDay === 'Master' && (
                                 <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-16">
                                     <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden border border-slate-700">
@@ -623,8 +667,8 @@
                                                                         <p className={`text-xs font-bold truncate ${isPublished ? 'text-green-900' : 'text-slate-500'}`}>
                                                                             {post.text || "Empty Slot"}
                                                                         </p>
-                                                                        <p className="text-[8px] font-black uppercase text-slate-400 mt-0.5">
-                                                                            {displayDateStr} • {post.type || 'Static'}
+                                                                        <p className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${isPublished ? 'text-green-600' : 'text-slate-400'}`}>
+                                                                            {isPublished ? 'PUBLISHED' : 'NOT PUBLISHED'} • {displayDateStr} • {post.type || 'Static'}
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -641,7 +685,6 @@
                                 </div>
                             )}
 
-                            {/* CALENDAR VIEW */}
                             {selectedDay === 'Calendar' && (
                                 <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-16">
                                     <section className="bg-gradient-to-br from-indigo-900 to-purple-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden border border-indigo-700">
@@ -679,20 +722,19 @@
                                 </div>
                             )}
 
-                            {/* STANDARD WORKSPACE VIEW */}
                             {selectedDay !== 'Master' && selectedDay !== 'Calendar' && (
                                 <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-16">
                                     {/* Brand Focus Card */}
                                     <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 shadow-lg border border-slate-800 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
                                         <div className="absolute -right-8 -top-8 opacity-10 pointer-events-none transform -rotate-12">
-                                            <Icon name={clientsData[selectedDay]?.icon || "layout-dashboard"} size={180} />
+                                            <Icon name={currentClientSafe.icon || "layout-dashboard"} size={180} />
                                         </div>
                                         <div className="relative z-10">
                                             <span className="inline-block bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3 border border-blue-400/30">
                                                 {selectedDay} Production Focus
                                             </span>
-                                            <h2 className="text-2xl font-extrabold tracking-tight mb-1">{clientsData[selectedDay]?.name}</h2>
-                                            <p className="text-xs text-slate-400 font-medium max-w-xl">{clientsData[selectedDay]?.focus}</p>
+                                            <h2 className="text-2xl font-extrabold tracking-tight mb-1">{currentClientSafe.name}</h2>
+                                            <p className="text-xs text-slate-400 font-medium max-w-xl">{currentClientSafe.focus}</p>
                                         </div>
                                     </div>
 
@@ -733,7 +775,6 @@
                                                 </div>
                                             </div>
 
-                                            {}
                                             {/* Calendar Box Grid */}
                                             <div className="grid grid-cols-7 gap-2 border-t border-slate-100 pt-4">
                                                 {/* Day Initials Row */}
@@ -990,7 +1031,7 @@
                     </div>
 
                     {/* ====================================================================== */}
-                    /* RE-DESIGNED QUICK-EDIT MODAL FOR GRID CELLS                           */
+                    {/* RE-DESIGNED QUICK-EDIT MODAL FOR GRID CELLS                            */}
                     {/* ====================================================================== */}
                     {selectedPostDayIdx !== null && selectedDay && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -1011,16 +1052,25 @@
                                 </div>
 
                                 <div className="p-6 space-y-6">
-                                    {/* Locked Date Info */}
+                                    {/* Locked Date Info with Red Sunday Check */}
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Assigned Date</label>
-                                        <div className="bg-slate-100 border border-slate-200 px-4 py-3 rounded-xl flex items-center justify-between text-sm font-bold text-slate-600">
-                                            <span>
-                                                {String(selectedPostDayIdx + 1).padStart(2, '0')}/{String(currentMonth + 1).padStart(2, '0')}/{currentYear} (
-                                                {new Date(currentYear, currentMonth, selectedPostDayIdx + 1).toLocaleDateString('en-GB', { weekday: 'long' })})
-                                            </span>
-                                            <Icon name="lock" size={14} className="text-slate-400" />
-                                        </div>
+                                        
+                                        {(() => {
+                                            const modalDateObj = new Date(currentYear, currentMonth, selectedPostDayIdx + 1);
+                                            const isSunday = modalDateObj.getDay() === 0;
+                                            const dayOfWeekStr = modalDateObj.toLocaleDateString('en-GB', { weekday: 'short' });
+                                            
+                                            return (
+                                                <div className="bg-slate-100 border border-slate-200 px-4 py-3 rounded-xl flex items-center justify-between text-sm font-bold text-slate-600">
+                                                    <span className="flex items-center gap-2">
+                                                        {String(selectedPostDayIdx + 1).padStart(2, '0')}/{String(currentMonth + 1).padStart(2, '0')}/{currentYear}
+                                                        <span className={isSunday ? "text-red-500" : "text-slate-400"}>{dayOfWeekStr}</span>
+                                                    </span>
+                                                    <Icon name="lock" size={14} className="text-slate-400" />
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Special Days Alert */}
