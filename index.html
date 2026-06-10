@@ -62,7 +62,6 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo } = React;
 
-        // --- Firebase Configuration Logic ---
         const getFirebaseConfig = () => {
             if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                 try {
@@ -97,7 +96,7 @@
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
 
-        // Helper to parse dynamic dates (like "1st Mon", "Jan 14") to actual integer days of the month
+        // Helper to parse dynamic holiday dates
         const parseEventDay = (dateStr, year, monthIndex) => {
             const exactMatch = dateStr.match(/^[A-Za-z]{3}\s(\d+)/);
             if (exactMatch) return parseInt(exactMatch[1], 10);
@@ -118,10 +117,9 @@
                     }
                 }
             }
-            return null; // For specific holidays labeled "Varies"
+            return null; 
         };
 
-        // --- Smart Link Preview Component ---
         const IdeaLinkPreview = ({ url, domain }) => {
             const [imageUrl, setImageUrl] = useState(null);
 
@@ -159,7 +157,6 @@
             );
         };
 
-        // --- Custom Dropdown Component for Post Types ---
         const PostTypeDropdown = ({ value, onChange, isLast }) => {
             const [isOpen, setIsOpen] = useState(false);
             const options = [
@@ -211,28 +208,26 @@
             const [isSyncing, setIsSyncing] = useState(false);
             const [currentTime, setCurrentTime] = useState(new Date());
             
-            // Layout View Mode & Sub-tab switching state
+            // Replaced generic 'selectedDay' with explicit 'activeBrand'
+            const [activeBrand, setActiveBrand] = useState("Tours Coach"); 
             const [activeInnerTab, setActiveInnerTab] = useState('pipeline'); // 'pipeline', 'vault', 'competitors', 'resources'
-            const [selectedDay, setSelectedDay] = useState("");
             const [selectedIdeaClient, setSelectedIdeaClient] = useState("Global Strategy");
             const [newIdea, setNewIdea] = useState("");
             
-            // Modal state for editing a specific post in the calendar view
+            // Modal state for editing a specific post in the calendar box view
             const [selectedPostDayIdx, setSelectedPostDayIdx] = useState(null);
 
-            // Current Date/Month Setup for Auto-Refreshing calendar structure
+            // Month calculation logic
             const currentYear = currentTime.getFullYear();
             const currentMonth = currentTime.getMonth();
             const currentDayOfMonth = currentTime.getDate();
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             const monthName = currentTime.toLocaleString('default', { month: 'long' });
 
-            // Detect starting week day offset for calendar mapping
             const startingDayOfWeekOffset = useMemo(() => {
                 return new Date(currentYear, currentMonth, 1).getDay();
             }, [currentYear, currentMonth]);
 
-            // Calendar Special Days Data
             const calendarEvents = useMemo(() => [
                 { month: "January", events: [{ date: "Jan 1", name: "New Year's Day", type: "Global" }, { date: "Jan 25", name: "Burns Night", type: "UK" }, { date: "Jan 27", name: "Int. Holocaust Remembrance Day", type: "Global" }] },
                 { month: "February", events: [{ date: "Feb 14", name: "Valentine’s Day", type: "Global" }, { date: "3rd Mon", name: "Family Day", type: "Canada" }] },
@@ -257,21 +252,22 @@
                 });
             }, [monthName, currentYear, currentMonth, calendarEvents]);
 
-            // Content Database State
             const [ideas, setIdeas] = useState({});
             const [resources, setResources] = useState({});
             const [postsData, setPostsData] = useState({});
             const [competitorsData, setCompetitorsData] = useState({});
 
             const clientsData = useMemo(() => ({
-                Master: { name: "Monthly Overview", focus: "Global production status.", icon: "layout-dashboard" },
-                Calendar: { name: "Events & Holidays", focus: "UK, Canada & Int. Key Dates.", icon: "calendar-heart" },
-                Monday: { name: "Tours Coach (Canada)", focus: "Group travel imagery & event-based transport ads.", icon: "bus" },
-                Tuesday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics.", icon: "plane" },
-                Wednesday: { name: "Tours Coach (Canada)", focus: "Group travel imagery & event-based transport ads.", icon: "bus" },
-                Thursday: { name: "Fly Universal (UK)", focus: "Last Minute deal templates & flight route maps.", icon: "plane-takeoff" },
-                Friday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights.", icon: "car" }
+                "Master": { name: "Monthly Overview", focus: "Global production status.", icon: "layout-dashboard" },
+                "Calendar": { name: "Events & Holidays", focus: "UK, Canada & Int. Key Dates.", icon: "calendar-heart" },
+                "Tours Coach": { name: "Tours Coach (Canada)", focus: "Group travel imagery & event-based transport ads.", icon: "bus" },
+                "Universal Holidays": { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics.", icon: "plane" },
+                "Fly Universal": { name: "Fly Universal (UK)", focus: "Last Minute deal templates & flight route maps.", icon: "plane-takeoff" },
+                "Airfleet Limo": { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights.", icon: "car" }
             }), []);
+
+            const brandKeys = ["Tours Coach", "Universal Holidays", "Fly Universal", "Airfleet Limo"];
+            const displayTabs = ["Master", "Calendar", ...brandKeys];
 
             const vaultTabs = [
                 { id: "Universal Holidays (UK)", label: "Univ Hol" },
@@ -282,27 +278,12 @@
                 { id: "Global Strategy", label: "Global" }
             ];
 
-            const fullWeekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-            const todayStr = fullWeekDays[new Date().getDay()];
-            const actualToday = (todayStr === "Sunday" || todayStr === "Saturday") ? "Monday" : todayStr;
-            
-            const displayDays = ["Master", "Calendar", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-
-            // Set initial state correctly
+            // Auto-sync Idea Vault tab to the currently selected Brand
             useEffect(() => {
-                setSelectedDay(actualToday);
-            }, [actualToday]);
-
-            // Auto-sync Idea Vault tab to the currently selected Day (except on Master/Calendar view)
-            useEffect(() => {
-                if (selectedDay === "Master" || selectedDay === "Calendar" || !selectedDay) return; 
-                const clientName = clientsData[selectedDay]?.name;
-                if (clientName === "Maintenance" || clientName === "Rest") {
-                    setSelectedIdeaClient("Global Strategy");
-                } else {
-                    setSelectedIdeaClient(clientName || "Global Strategy");
-                }
-            }, [selectedDay, clientsData]);
+                if (activeBrand === "Master" || activeBrand === "Calendar" || !activeBrand) return; 
+                const clientName = clientsData[activeBrand]?.name;
+                setSelectedIdeaClient(clientName || "Global Strategy");
+            }, [activeBrand, clientsData]);
 
             useEffect(() => {
                 const initAuth = async () => { 
@@ -331,7 +312,6 @@
             useEffect(() => {
                 if (!user) return;
                 
-                // --- PERMANENT GLOBAL CLOUD PATH ---
                 const path = `/artifacts/${appId}/public/data/dashboard/current`;
                 const docRef = db.doc(path);
                 
@@ -395,58 +375,53 @@
                 syncToCloud({ ideas: updated });
             };
 
-            // Post Pipeline Functions
             const cyclePostStatus = (status) => {
                 if (status === 'todo') return 'in-progress';
                 if (status === 'in-progress') return 'published';
                 return 'todo';
             };
 
-            // Enhanced update function that stamps the explicit date string
             const updatePostDetails = (index, field, value, specificDateStr) => {
-                if (!selectedDay) return;
-                const dayPosts = postsData[selectedDay] ? [...postsData[selectedDay]] : [];
+                if (!activeBrand) return;
+                const brandPosts = postsData[activeBrand] ? [...postsData[activeBrand]] : [];
                 
-                // Ensure array size matches the month length
-                while(dayPosts.length < daysInMonth) dayPosts.push({ text: "", status: "todo", type: "Static", date: "" });
+                while(brandPosts.length < daysInMonth) brandPosts.push({ text: "", status: "todo", type: "Static", date: "" });
 
-                // If specificDateStr is provided, it means we are locking the record to that exact date
                 if (specificDateStr) {
-                    dayPosts[index] = { ...dayPosts[index], [field]: value, date: specificDateStr };
+                    brandPosts[index] = { ...brandPosts[index], [field]: value, date: specificDateStr };
                 } else {
-                    dayPosts[index] = { ...dayPosts[index], [field]: value };
+                    brandPosts[index] = { ...brandPosts[index], [field]: value };
                 }
                 
-                const newPostsData = { ...postsData, [selectedDay]: dayPosts };
+                const newPostsData = { ...postsData, [activeBrand]: brandPosts };
                 
                 setPostsData(newPostsData);
                 syncToCloud({ postsData: newPostsData });
             };
 
-            // Competitor Functions
             const addCompetitorRow = () => {
-                if (!selectedDay) return;
-                const dayCompetitors = competitorsData[selectedDay] ? [...competitorsData[selectedDay]] : [];
-                dayCompetitors.push({ id: Date.now(), name: "", url: "" });
-                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                if (!activeBrand) return;
+                const brandCompetitors = competitorsData[activeBrand] ? [...competitorsData[activeBrand]] : [];
+                brandCompetitors.push({ id: Date.now(), name: "", url: "" });
+                const newCompData = { ...competitorsData, [activeBrand]: brandCompetitors };
                 setCompetitorsData(newCompData);
                 syncToCloud({ competitorsData: newCompData });
             };
 
             const updateCompetitor = (index, field, value) => {
-                if (!selectedDay) return;
-                const dayCompetitors = [...(competitorsData[selectedDay] || [])];
-                dayCompetitors[index] = { ...dayCompetitors[index], [field]: value };
-                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                if (!activeBrand) return;
+                const brandCompetitors = [...(competitorsData[activeBrand] || [])];
+                brandCompetitors[index] = { ...brandCompetitors[index], [field]: value };
+                const newCompData = { ...competitorsData, [activeBrand]: brandCompetitors };
                 setCompetitorsData(newCompData);
                 syncToCloud({ competitorsData: newCompData });
             };
 
             const removeCompetitor = (index) => {
-                if (!selectedDay) return;
-                const dayCompetitors = [...(competitorsData[selectedDay] || [])];
-                dayCompetitors.splice(index, 1);
-                const newCompData = { ...competitorsData, [selectedDay]: dayCompetitors };
+                if (!activeBrand) return;
+                const brandCompetitors = [...(competitorsData[activeBrand] || [])];
+                brandCompetitors.splice(index, 1);
+                const newCompData = { ...competitorsData, [activeBrand]: brandCompetitors };
                 setCompetitorsData(newCompData);
                 syncToCloud({ competitorsData: newCompData });
             };
@@ -456,8 +431,7 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // Safe fallback logic for resources to prevent crashes if partially saved
-            const currentClientSafe = clientsData[selectedDay] || { name: "", focus: "", icon: "layout-dashboard" };
+            const currentClientSafe = clientsData[activeBrand] || { name: "", focus: "", icon: "layout-dashboard" };
             const clientRes = resources[currentClientSafe.name] || { colors: "", link: "" };
             const safeColors = clientRes.colors || "";
             const safeLink = clientRes.link || "";
@@ -477,15 +451,13 @@
                 });
             };
 
-            // Calculates the global progress for the Master view strictly based on current month's dates
             const calculateGlobalProgress = () => {
                 let totalPublished = 0;
-                const workDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-                workDays.forEach(day => {
-                    const dayPosts = postsData[day] || [];
+                brandKeys.forEach(brand => {
+                    const brandPosts = postsData[brand] || [];
                     for (let i=0; i<daysInMonth; i++) {
                         const expectedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
-                        const p = dayPosts[i];
+                        const p = brandPosts[i];
                         if (p && p.status === 'published' && p.date === expectedDate) {
                             totalPublished++;
                         }
@@ -494,7 +466,7 @@
                 return totalPublished;
             };
 
-            const globalMaxProgress = 5 * daysInMonth;
+            const globalMaxProgress = brandKeys.length * daysInMonth;
 
             return (
                 <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-800 antialiased">
@@ -504,52 +476,28 @@
                         </div>
                     )}
 
-                    {/* Pro Sidebar Nav */}
                     <aside className="hidden lg:flex flex-col w-72 bg-slate-900 text-slate-100 flex-shrink-0 border-r border-slate-800">
                         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
                             <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg">
                                 <Icon name="check-square" size={24} />
                             </div>
                             <div>
-                                <h1 className="text-xl font-extrabold tracking-tighter">RICKAAZ</h1>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Production Master</p>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">
-                            <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-3">Overviews</p>
-                                <nav className="space-y-1">
-                                    {['Master', 'Calendar'].map(d => (
-                                        <button 
-                                            key={d} 
-                                            onClick={() => { setSelectedDay(d); setActiveInnerTab('pipeline'); }} 
-                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold text-sm ${selectedDay === d ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
-                                        >
-                                            <Icon name={clientsData[d].icon} size={18} />
-                                            {d}
-                                        </button>
-                                    ))}
-                                </nav>
-                            </div>
-
-                            <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-3">Daily Schedule</p>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-3">Brands Workspace</p>
                                 <nav className="space-y-1.5">
-                                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(d => {
-                                        const isSelected = selectedDay === d;
+                                    {brandKeys.map(brand => {
+                                        const isSelected = activeBrand === brand;
                                         return (
                                             <button 
-                                                key={d} 
-                                                onClick={() => { setSelectedDay(d); setActiveInnerTab('pipeline'); }} 
+                                                key={brand} 
+                                                onClick={() => { setActiveBrand(brand); setActiveInnerTab('pipeline'); }} 
                                                 className={`w-full flex flex-col items-start px-4 py-3 rounded-xl transition-all border ${isSelected ? 'bg-slate-800 border-slate-700 text-white shadow-sm' : 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-white'}`}
                                             >
                                                 <div className="flex items-center gap-3 w-full">
-                                                    <Icon name={clientsData[d].icon} size={16} className={isSelected ? 'text-blue-500' : 'text-slate-400'} />
-                                                    <span className="font-semibold text-sm">{d}</span>
+                                                    <Icon name={clientsData[brand].icon} size={16} className={isSelected ? 'text-blue-500' : 'text-slate-400'} />
+                                                    <span className="font-semibold text-sm truncate">{brand}</span>
                                                 </div>
                                                 <span className="text-[10px] font-medium mt-1 truncate pl-7 text-slate-400 max-w-full">
-                                                    {clientsData[d].name.split(' (')[0]}
+                                                    {clientsData[brand].name.split(' (')[0]}
                                                 </span>
                                             </button>
                                         );
@@ -571,9 +519,7 @@
                         </div>
                     </aside>
 
-                    {/* Main Content Workspace */}
                     <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-                        {/* Header Block */}
                         <header className="bg-white border-b border-slate-200 py-4 px-6 flex justify-between items-center shadow-sm z-30">
                             <div className="flex items-center gap-3 lg:hidden">
                                 <div className="bg-blue-600 p-2 rounded-xl text-white shadow-md">
@@ -584,7 +530,7 @@
 
                             <div className="hidden lg:block">
                                 <h2 className="text-lg font-bold tracking-tight text-slate-900">{currentClientSafe.name || "Master"}</h2>
-                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Workspace • {selectedDay}</p>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Workspace • {activeBrand}</p>
                             </div>
 
                             <div className="flex items-center gap-4">
@@ -602,10 +548,10 @@
                             </div>
                         </header>
 
-                        {/* Scrolling Container */}
                         <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar">
                             
-                            {selectedDay === 'Master' && (
+                            {}
+                            {activeBrand === 'Master' && (
                                 <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-16">
                                     <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden border border-slate-700">
                                         <div className="absolute -top-16 -right-6 opacity-10 pointer-events-none rotate-12">
@@ -628,12 +574,12 @@
                                     </section>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(day => {
-                                            const dayPosts = postsData[day] || [];
+                                        {brandKeys.map(brand => {
+                                            const brandPosts = postsData[brand] || [];
                                             let publishedCount = 0;
                                             const slots = Array.from({length: daysInMonth}, (_, i) => {
                                                 const expectedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
-                                                let p = dayPosts[i] || { status: 'todo', text: '', type: 'Static', date: expectedDate };
+                                                let p = brandPosts[i] || { status: 'todo', text: '', type: 'Static', date: expectedDate };
                                                 if (p.date && p.date !== expectedDate) {
                                                     p = { status: 'todo', text: '', type: 'Static', date: expectedDate };
                                                 }
@@ -642,51 +588,31 @@
                                             });
 
                                             return (
-                                                <div key={day} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:border-blue-400 transition-all hover:-translate-y-1">
+                                                <div key={brand} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:border-blue-400 transition-all hover:-translate-y-1">
                                                     <div className="bg-slate-50 border-b border-slate-100 p-5 flex justify-between items-center">
-                                                        <div>
-                                                            <h4 className="font-bold text-slate-900 uppercase tracking-tighter text-sm flex items-center gap-2">
-                                                                <Icon name={clientsData[day].icon} size={16} className="text-slate-400" />
-                                                                {day}
-                                                            </h4>
-                                                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1 truncate max-w-[160px]">{clientsData[day].name}</p>
-                                                        </div>
-                                                        <div className={`px-3 py-1 rounded-lg text-xs font-bold border ${publishedCount === daysInMonth ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-900 uppercase tracking-tighter text-sm flex items-center gap-2">
+                                                            <Icon name={clientsData[brand].icon} size={16} className="text-slate-400" />
+                                                            {brand}
+                                                        </h4>
+                                                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1 truncate max-w-[160px]">{clientsData[brand].name}</p>
+                                                    </div>
+                                                    <div className={`px-3 py-1 rounded-lg text-xs font-bold border ${publishedCount === daysInMonth ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                                                             {publishedCount}/{daysInMonth}
                                                         </div>
                                                     </div>
-                                                    <div className="p-5 flex flex-col gap-2.5 flex-1 max-h-[300px] overflow-y-auto custom-scrollbar">
-                                                        {slots.map((post, i) => {
-                                                            const dayNum = i + 1;
-                                                            const isPast = dayNum < currentDayOfMonth;
-                                                            const isPublished = post.status === 'published';
-                                                            const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
-                                                            return (
-                                                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'} ${isPast ? 'opacity-50 grayscale-[0.5]' : ''}`}>
-                                                                    <Icon name={isPublished ? "check-circle" : "circle"} className={isPublished ? "text-green-500" : "text-slate-300"} size={16} />
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className={`text-xs font-bold truncate ${isPublished ? 'text-green-900' : 'text-slate-500'}`}>
-                                                                            {post.text || "Empty Slot"}
-                                                                        </p>
-                                                                        <p className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${isPublished ? 'text-green-600' : 'text-slate-400'}`}>
-                                                                            {isPublished ? 'PUBLISHED' : 'NOT PUBLISHED'} • {displayDateStr} • {post.type || 'Static'}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    <button onClick={() => setSelectedDay(day)} className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest p-3.5 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
-                                                        Open & Edit <Icon name="arrow-right" size={12} />
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                                <button onClick={() => setActiveBrand(brand)} className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest p-3.5 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 mt-auto">
+                                                    Open & Edit <Icon name="arrow-right" size={12} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            {selectedDay === 'Calendar' && (
+                            {}
+                            {activeBrand === 'Calendar' && (
                                 <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-16">
                                     <section className="bg-gradient-to-br from-indigo-900 to-purple-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden border border-indigo-700">
                                         <div className="absolute -top-16 -right-6 opacity-10 pointer-events-none rotate-12">
@@ -723,23 +649,22 @@
                                 </div>
                             )}
 
-                            {selectedDay !== 'Master' && selectedDay !== 'Calendar' && (
+                            {}
+                            {activeBrand !== 'Master' && activeBrand !== 'Calendar' && (
                                 <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-16">
-                                    {/* Brand Focus Card */}
                                     <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 shadow-lg border border-slate-800 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
                                         <div className="absolute -right-8 -top-8 opacity-10 pointer-events-none transform -rotate-12">
                                             <Icon name={currentClientSafe.icon || "layout-dashboard"} size={180} />
                                         </div>
                                         <div className="relative z-10">
                                             <span className="inline-block bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3 border border-blue-400/30">
-                                                {selectedDay} Production Focus
+                                                {activeBrand} Production Focus
                                             </span>
                                             <h2 className="text-2xl font-extrabold tracking-tight mb-1">{currentClientSafe.name}</h2>
                                             <p className="text-xs text-slate-400 font-medium max-w-xl">{currentClientSafe.focus}</p>
                                         </div>
                                     </div>
 
-                                    {/* Workspace Tabs Navigation */}
                                     <div className="flex overflow-x-auto no-scrollbar gap-2 bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200">
                                         {[
                                             { id: 'pipeline', label: 'Post Calendar Box', icon: 'calendar-range' },
@@ -758,7 +683,6 @@
                                         ))}
                                     </div>
 
-                                    {/* TAB CONTENT: PIPELINE - BOX CALENDAR VIEW */}
                                     {activeInnerTab === 'pipeline' && (
                                         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6 fade-in">
                                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -776,41 +700,33 @@
                                                 </div>
                                             </div>
 
-                                            {/* Calendar Box Grid */}
                                             <div className="grid grid-cols-7 gap-2 border-t border-slate-100 pt-4">
-                                                {/* Day Initials Row */}
                                                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName, idx) => (
                                                     <div key={idx} className="text-center py-2 text-xs font-extrabold text-slate-400 uppercase tracking-widest">
                                                         <span className={idx === 0 ? "text-red-500" : ""}>{dayName}</span>
                                                     </div>
                                                 ))}
 
-                                                {/* Pre-Offset empty slots */}
                                                 {Array.from({ length: startingDayOfWeekOffset }).map((_, idx) => (
                                                     <div key={`offset-${idx}`} className="bg-slate-50/20 border border-dashed border-slate-200 rounded-2xl h-32 md:h-36 opacity-40"></div>
                                                 ))}
 
-                                                {/* Actual Month Days */}
                                                 {Array.from({ length: daysInMonth }).map((_, i) => {
                                                     const dayNum = i + 1;
                                                     const isToday = dayNum === currentDayOfMonth;
                                                     const isPast = dayNum < currentDayOfMonth;
                                                     const expectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                                                    const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
                                                     
-                                                    // Parse row's weekday
                                                     const rowDateObj = new Date(currentYear, currentMonth, dayNum);
                                                     const isSunday = rowDateObj.getDay() === 0;
                                                     
                                                     const todaysEvents = getEventsForDay(dayNum);
-                                                    let post = (postsData[selectedDay] || [])[i] || { text: "", status: "todo", type: "Static", date: expectedDateStr };
+                                                    let post = (postsData[activeBrand] || [])[i] || { text: "", status: "todo", type: "Static", date: expectedDateStr };
                                                     
-                                                    // Handle auto-refresh checks
                                                     if (post.date && post.date !== expectedDateStr) {
                                                         post = { text: "", status: "todo", type: "Static", date: expectedDateStr };
                                                     }
 
-                                                    // Visual layout definitions based on state
                                                     let statusBorder = "border-slate-200 bg-white hover:border-slate-300";
                                                     let statusBadgeStyle = "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200";
                                                     if (post.status === 'in-progress') {
@@ -840,7 +756,6 @@
                                                             onClick={() => setSelectedPostDayIdx(i)}
                                                             className={`calendar-box border rounded-2xl p-2.5 h-32 md:h-36 flex flex-col justify-between shadow-sm cursor-pointer ${statusBorder}`}
                                                         >
-                                                            {/* Day Header Row */}
                                                             <div className="flex justify-between items-start">
                                                                 <div className="flex items-baseline gap-1">
                                                                     <span className={`text-base font-extrabold ${isSunday ? 'text-red-500' : 'text-slate-800'}`}>
@@ -857,7 +772,6 @@
                                                                 )}
                                                             </div>
 
-                                                            {/* Middle Text Preview & Holiday Stars */}
                                                             <div className="flex-1 my-1 overflow-hidden">
                                                                 {todaysEvents.length > 0 ? (
                                                                     <div className="flex flex-col gap-0.5">
@@ -875,14 +789,13 @@
                                                                 )}
                                                             </div>
 
-                                                            {/* Bottom Controls Row */}
                                                             <div className="flex items-center justify-between gap-1 mt-1 pt-1.5 border-t border-slate-100">
                                                                 <span className="text-[8px] font-black bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-md uppercase tracking-wider select-none">
                                                                     {post.type || 'Static'}
                                                                 </span>
                                                                 <button 
                                                                     onClick={(e) => {
-                                                                        e.stopPropagation(); // Avoid opening edit modal
+                                                                        e.stopPropagation(); 
                                                                         updatePostDetails(i, 'status', cyclePostStatus(post.status), expectedDateStr);
                                                                     }}
                                                                     className={`text-[8px] font-black border px-2 py-0.5 rounded-md uppercase tracking-widest btn-interact select-none ${statusBadgeStyle}`}
@@ -897,7 +810,7 @@
                                         </div>
                                     )}
 
-                                    {/* TAB CONTENT: VAULT */}
+                                    {}
                                     {activeInnerTab === 'vault' && (
                                         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden fade-in">
                                             <div className="p-6 md:p-8 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -956,7 +869,7 @@
                                         </div>
                                     )}
 
-                                    {/* TAB CONTENT: COMPETITORS */}
+                                    {}
                                     {activeInnerTab === 'competitors' && (
                                         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden fade-in">
                                             <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -969,8 +882,8 @@
                                                 </button>
                                             </div>
                                             <div className="p-6 md:p-8 space-y-4">
-                                                {(competitorsData[selectedDay] || []).length > 0 ? (
-                                                    (competitorsData[selectedDay] || []).map((comp, i) => (
+                                                {(competitorsData[activeBrand] || []).length > 0 ? (
+                                                    (competitorsData[activeBrand] || []).map((comp, i) => (
                                                         <div key={comp.id} className="flex flex-col md:flex-row items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-red-300 group">
                                                             <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 font-black flex items-center justify-center shadow-inner text-sm flex-shrink-0 border border-slate-100">
                                                                 {i + 1}
@@ -1004,14 +917,14 @@
                                                 ) : (
                                                     <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center h-full">
                                                         <Icon name="users" size={36} className="text-slate-200 mb-3" />
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No competitors tracked for {selectedDay}</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No competitors tracked for {activeBrand}</p>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* TAB CONTENT: RESOURCES */}
+                                    {}
                                     {activeInnerTab === 'resources' && (
                                         <section className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm w-full fade-in">
                                             <h2 className="font-extrabold text-slate-900 mb-6 flex items-center gap-3 uppercase tracking-tighter text-sm"><Icon name="paperclip" className="text-blue-600" /> Brand Resources</h2>
@@ -1040,10 +953,8 @@
                         </div>
                     </div>
 
-                    {/* ====================================================================== */}
-                    {/* RE-DESIGNED QUICK-EDIT MODAL FOR GRID CELLS                            */}
-                    {/* ====================================================================== */}
-                    {selectedPostDayIdx !== null && selectedDay && (
+                    {}
+                    {selectedPostDayIdx !== null && activeBrand && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden animate-fade-in flex flex-col">
                                 <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
@@ -1062,7 +973,6 @@
                                 </div>
 
                                 <div className="p-6 space-y-6">
-                                    {/* Locked Date Info with Red Sunday Check */}
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Assigned Date</label>
                                         
@@ -1083,7 +993,6 @@
                                         })()}
                                     </div>
 
-                                    {/* Special Days Alert */}
                                     {getEventsForDay(selectedPostDayIdx + 1).length > 0 && (
                                         <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl flex flex-col gap-2">
                                             <span className="text-[9px] font-black text-purple-700 uppercase tracking-widest flex items-center gap-1.5">
@@ -1098,24 +1007,22 @@
                                         </div>
                                     )}
 
-                                    {/* Post Details Input */}
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Short Details</label>
                                         <input 
                                             type="text" 
                                             placeholder="Enter short details for this post..." 
                                             className="w-full bg-slate-50 outline-none text-sm font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-100 p-4 rounded-xl transition-all shadow-inner border border-slate-200" 
-                                            value={((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).text || ""} 
+                                            value={((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).text || ""} 
                                             onChange={e => updatePostDetails(selectedPostDayIdx, 'text', e.target.value, `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedPostDayIdx + 1).padStart(2, '0')}`)} 
                                         />
                                     </div>
 
-                                    {/* Meta Controls (Type + Status) */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Post Format</label>
                                             <PostTypeDropdown 
-                                                value={((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).type || "Static"} 
+                                                value={((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).type || "Static"} 
                                                 onChange={(val) => updatePostDetails(selectedPostDayIdx, 'type', val, `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedPostDayIdx + 1).padStart(2, '0')}`)} 
                                                 isLast={false}
                                             />
@@ -1124,25 +1031,25 @@
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Workflow Status</label>
                                             <button 
                                                 onClick={() => {
-                                                    const currentStatus = ((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).status || 'todo';
+                                                    const currentStatus = ((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).status || 'todo';
                                                     updatePostDetails(selectedPostDayIdx, 'status', cyclePostStatus(currentStatus), `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedPostDayIdx + 1).padStart(2, '0')}`);
                                                 }}
                                                 className={`w-full py-3.5 rounded-xl text-xs font-black tracking-widest uppercase border btn-interact select-none flex items-center justify-center gap-2 ${
-                                                    ((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).status === 'published' 
+                                                    ((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).status === 'published' 
                                                         ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-100' 
-                                                        : ((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).status === 'in-progress' 
+                                                        : ((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).status === 'in-progress' 
                                                             ? 'bg-yellow-400 text-yellow-950 border-yellow-500 shadow-md shadow-yellow-50' 
                                                             : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
                                                 }`}
                                             >
                                                 <Icon name={
-                                                    ((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).status === 'published' 
+                                                    ((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).status === 'published' 
                                                         ? 'check-circle' 
-                                                        : ((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).status === 'in-progress' 
+                                                        : ((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).status === 'in-progress' 
                                                             ? 'loader' 
                                                             : 'circle'
-                                                } size={14} className={((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).status === 'in-progress' ? 'animate-spin' : ''} />
-                                                {(((postsData[selectedDay] || [])[selectedPostDayIdx] || {}).status || 'todo').replace('-', ' ')}
+                                                } size={14} className={((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).status === 'in-progress' ? 'animate-spin' : ''} />
+                                                {(((postsData[activeBrand] || [])[selectedPostDayIdx] || {}).status || 'todo').replace('-', ' ')}
                                             </button>
                                         </div>
                                     </div>
@@ -1160,22 +1067,24 @@
                         </div>
                     )}
 
-                    {/* Mobile Navigation bar */}
+                    {}
                     <footer className="lg:hidden fixed bottom-0 left-0 right-0 glass-effect px-4 py-3 z-50 flex justify-between items-center border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
                         <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-full">
-                            {displayDays.map(d => (
+                            {displayTabs.map(tab => (
                                 <button 
-                                    key={d} 
-                                    onClick={() => { setSelectedDay(d); setActiveInnerTab('pipeline'); }} 
+                                    key={tab} 
+                                    onClick={() => { setActiveBrand(tab); setActiveInnerTab('pipeline'); }} 
                                     className={`flex flex-col items-center justify-center px-4 py-2 rounded-xl transition-all min-w-max ${
-                                        selectedDay === d 
-                                        ? (d === 'Master' || d === 'Calendar' ? 'bg-slate-900 text-white shadow-md scale-105' : 'bg-blue-600 text-white shadow-md scale-105') 
+                                        activeBrand === tab 
+                                        ? (tab === 'Master' || tab === 'Calendar' ? 'bg-slate-900 text-white shadow-md scale-105' : 'bg-blue-600 text-white shadow-md scale-105') 
                                         : 'bg-white border border-slate-100 text-slate-400 hover:bg-slate-50'
                                     }`}
                                 >
-                                    <span className="text-[10px] font-black uppercase tracking-wider">{d.substring(0,3)}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-wider">
+                                        {tab === 'Master' || tab === 'Calendar' ? tab.substring(0,3) : tab.split(' ')[0].substring(0,4)}
+                                    </span>
                                     <span className="text-[8px] font-semibold opacity-85 mt-0.5 max-w-[50px] truncate">
-                                        {clientsData[d].name.split(' (')[0]}
+                                        {tab === 'Master' || tab === 'Calendar' ? tab : tab.split(' ').pop()}
                                     </span>
                                 </button>
                             ))}
