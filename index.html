@@ -270,8 +270,7 @@
                 Tuesday: { name: "Universal Holidays (UK)", focus: "High-end travel flyers & holiday package graphics.", icon: "plane" },
                 Wednesday: { name: "Tours Coach (Canada)", focus: "Group travel imagery & event-based transport ads.", icon: "bus" },
                 Thursday: { name: "Fly Universal (UK)", focus: "Last Minute deal templates & flight route maps.", icon: "plane-takeoff" },
-                Friday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights.", icon: "car" },
-                Saturday: { name: "Maintenance", focus: "Weekly review and planning.", icon: "wrench" }
+                Friday: { name: "Airfleet Limo (Canada)", focus: "Professional fleet showcases & service area highlights.", icon: "car" }
             }), []);
 
             const vaultTabs = [
@@ -285,9 +284,9 @@
 
             const fullWeekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
             const todayStr = fullWeekDays[new Date().getDay()];
-            const actualToday = todayStr === "Sunday" ? "Monday" : todayStr;
+            const actualToday = (todayStr === "Sunday" || todayStr === "Saturday") ? "Monday" : todayStr;
             
-            const displayDays = ["Master", "Calendar", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const displayDays = ["Master", "Calendar", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
             // Set initial state correctly
             useEffect(() => {
@@ -481,7 +480,7 @@
             // Calculates the global progress for the Master view strictly based on current month's dates
             const calculateGlobalProgress = () => {
                 let totalPublished = 0;
-                const workDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                const workDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
                 workDays.forEach(day => {
                     const dayPosts = postsData[day] || [];
                     for (let i=0; i<daysInMonth; i++) {
@@ -495,7 +494,7 @@
                 return totalPublished;
             };
 
-            const globalMaxProgress = 6 * daysInMonth;
+            const globalMaxProgress = 5 * daysInMonth;
 
             return (
                 <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-800 antialiased">
@@ -535,9 +534,9 @@
                             </div>
 
                             <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-3">Weekly Rotation</p>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-3">Daily Schedule</p>
                                 <nav className="space-y-1.5">
-                                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(d => {
+                                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(d => {
                                         const isSelected = selectedDay === d;
                                         return (
                                             <button 
@@ -629,7 +628,7 @@
                                     </section>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => {
+                                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(day => {
                                             const dayPosts = postsData[day] || [];
                                             let publishedCount = 0;
                                             const slots = Array.from({length: daysInMonth}, (_, i) => {
@@ -658,10 +657,12 @@
                                                     </div>
                                                     <div className="p-5 flex flex-col gap-2.5 flex-1 max-h-[300px] overflow-y-auto custom-scrollbar">
                                                         {slots.map((post, i) => {
+                                                            const dayNum = i + 1;
+                                                            const isPast = dayNum < currentDayOfMonth;
                                                             const isPublished = post.status === 'published';
-                                                            const displayDateStr = `${String(i + 1).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
+                                                            const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
                                                             return (
-                                                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
+                                                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isPublished ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'} ${isPast ? 'opacity-50 grayscale-[0.5]' : ''}`}>
                                                                     <Icon name={isPublished ? "check-circle" : "circle"} className={isPublished ? "text-green-500" : "text-slate-300"} size={16} />
                                                                     <div className="flex-1 min-w-0">
                                                                         <p className={`text-xs font-bold truncate ${isPublished ? 'text-green-900' : 'text-slate-500'}`}>
@@ -793,6 +794,7 @@
                                                 {Array.from({ length: daysInMonth }).map((_, i) => {
                                                     const dayNum = i + 1;
                                                     const isToday = dayNum === currentDayOfMonth;
+                                                    const isPast = dayNum < currentDayOfMonth;
                                                     const expectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                                                     const displayDateStr = `${String(dayNum).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
                                                     
@@ -817,6 +819,14 @@
                                                     } else if (post.status === 'published') {
                                                         statusBorder = "border-green-300 bg-green-50/5 hover:border-green-400";
                                                         statusBadgeStyle = "bg-green-100 text-green-800 border-green-200 hover:bg-green-200";
+                                                    }
+
+                                                    if (isPast) {
+                                                        if (post.status === 'todo') {
+                                                            statusBorder = "border-slate-300 bg-slate-200/50 hover:bg-slate-300/50 opacity-75 grayscale-[0.2]";
+                                                        } else {
+                                                            statusBorder += " opacity-60 grayscale-[0.4]";
+                                                        }
                                                     }
 
                                                     if (isToday) {
