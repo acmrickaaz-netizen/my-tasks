@@ -494,17 +494,12 @@
                                         
                                         // Calculate counts for the specific brand
                                         let doneCount = 0;
-                                        let todoCount = 0;
                                         
                                         for (let i = 0; i < daysInMonth; i++) {
                                             const expectedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
                                             const p = brandPosts[i];
-                                            if (p && p.date === expectedDate) {
-                                                if (p.status === 'published') doneCount++;
-                                                else todoCount++; // 'todo' or 'in-progress'
-                                            } else {
-                                                // If no post exists or date doesn't match expected, it's considered 'todo'
-                                                todoCount++;
+                                            if (p && p.date === expectedDate && p.status === 'published') {
+                                                doneCount++;
                                             }
                                         }
 
@@ -525,11 +520,8 @@
                                                         {clientsData[brand].name.split(' (')[0]}
                                                     </span>
                                                     <div className="flex gap-1.5 flex-shrink-0">
-                                                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${todoCount > 0 ? 'bg-slate-700 text-slate-300' : 'bg-slate-800 text-slate-500'}`} title="To Do">
-                                                            {todoCount}
-                                                        </span>
-                                                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${doneCount > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-800 text-slate-500'}`} title="Done">
-                                                            {doneCount}
+                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${doneCount === daysInMonth ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`} title="Progress">
+                                                            {doneCount} / {daysInMonth}
                                                         </span>
                                                     </div>
                                                 </div>
