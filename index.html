@@ -471,7 +471,7 @@
                             {/* --- TODAY'S TASKS SECTION --- */}
                             <div className="p-6">
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-3">Today's Tasks</p>
-                                <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 space-y-3">
+                                <div className="space-y-2">
                                     {brandKeys.map(brand => {
                                         const brandPosts = postsData[brand] || [];
                                         const expectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDayOfMonth).padStart(2, '0')}`;
@@ -483,11 +483,23 @@
                                         
                                         const postText = todayPost.text || '';
                                         const isDone = todayPost.status === 'published';
+                                        const hasTask = postText.trim() !== '';
                                         
                                         return (
-                                            <div key={brand} className={`text-[11px] leading-snug ${isDone ? 'opacity-40 line-through' : ''}`}>
-                                                <span className="font-bold text-blue-400">{brand}</span>
-                                                <span className="text-slate-300"> - {postText}</span>
+                                            <div key={brand} className={`group flex items-start gap-3 p-3 rounded-xl border transition-all ${isDone ? 'bg-slate-800/30 border-slate-800/50 opacity-60' : hasTask ? 'bg-slate-800/60 border-slate-700 hover:bg-slate-800' : 'bg-slate-800/20 border-transparent'}`}>
+                                                <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-green-500/20 text-green-400' : hasTask ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-600'}`}>
+                                                    {isDone ? <Icon name="check" size={12} /> : <Icon name={clientsData[brand]?.icon || 'circle'} size={12} />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${isDone ? 'text-slate-500' : hasTask ? 'text-blue-400' : 'text-slate-600'}`}>{brand}</p>
+                                                    {hasTask ? (
+                                                        <p className={`text-xs font-medium leading-snug ${isDone ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                                                            {postText}
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-[10px] italic text-slate-600 font-medium mt-0.5">No task planned</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         );
                                     })}
